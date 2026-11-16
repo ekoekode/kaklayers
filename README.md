@@ -1,8 +1,12 @@
 <h1 align="center">🍰 KāKLayers</h1>
-<p align="center"><b>A visual, no-scripting configurator for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>.</b><br>
+<p align="center"><b>A visual Karabiner-Elements GUI for Mac: a no-scripting config editor for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>.</b><br>
 Build super keys, keyboard layers and advanced key workflows by clicking keys, not by writing JSON.</p>
 
 <p align="center"><img src="docs/img/nav-light.png" alt="KāKLayers showing a Navigate layer with hjkl mapped to arrow keys" width="900"></p>
+
+**Website:** https://ekoekode.github.io/kaklayers/ · **Download:** [Releases](https://github.com/ekoekode/kaklayers/releases)
+
+*Keywords: Karabiner GUI, Karabiner-Elements GUI, Karabiner configurator, Karabiner config editor, Mac keyboard layers, hyper key, caps lock remap, tap and hold keys, macOS key remapper.*
 
 ## Why this exists
 

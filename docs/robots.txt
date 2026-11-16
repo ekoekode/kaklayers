@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ekoekode.github.io/kaklayers/sitemap.xml

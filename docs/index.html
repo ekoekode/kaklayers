@@ -3,8 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KāKLayers · a visual configurator for Karabiner-Elements</title>
-<meta name="description" content="Build super keys, keyboard layers and advanced key workflows for Karabiner-Elements by clicking keys, not writing JSON.">
+<title>KāKLayers: a Karabiner-Elements GUI for Mac. Visual keyboard layers &amp; key remapping</title>
+<meta name="description" content="KāKLayers is a free, open-source Karabiner-Elements GUI for macOS. Build super keys, keyboard layers, hyper keys and tap/hold remaps visually, with no JSON and no scripting.">
+<meta name="keywords" content="Karabiner GUI, Karabiner-Elements GUI, Karabiner Elements configurator, Karabiner config editor, Mac keyboard remapping, keyboard layers, hyper key, caps lock remap, tap hold, macOS key remapper">
+<link rel="canonical" href="https://ekoekode.github.io/kaklayers/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#fbfaf8">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="KāKLayers">
+<meta property="og:title" content="KāKLayers: a visual Karabiner-Elements GUI for Mac">
+<meta property="og:description" content="Build keyboard layers, hyper keys and tap/hold remaps by clicking keys. Free, open source, no JSON.">
+<meta property="og:url" content="https://ekoekode.github.io/kaklayers/">
+<meta property="og:image" content="https://ekoekode.github.io/kaklayers/img/nav-light.png">
+<meta property="og:image:alt" content="KāKLayers showing a Navigate layer on a full Mac keyboard">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KāKLayers: a visual Karabiner-Elements GUI for Mac">
+<meta name="twitter:description" content="Build keyboard layers, hyper keys and tap/hold remaps by clicking keys. Free and open source.">
+<meta name="twitter:image" content="https://ekoekode.github.io/kaklayers/img/nav-light.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"KāKLayers","alternateName":"KaKLayers","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS 13 or later","description":"A free, open-source visual GUI for Karabiner-Elements. Build keyboard layers, super keys, hyper keys and tap/hold key remaps without writing JSON.","url":"https://ekoekode.github.io/kaklayers/","downloadUrl":"https://github.com/ekoekode/kaklayers/releases","screenshot":"https://ekoekode.github.io/kaklayers/img/nav-light.png","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Is there a GUI for Karabiner-Elements?","acceptedAnswer":{"@type":"Answer","text":"Yes. KāKLayers is a free, open-source, native Mac GUI for Karabiner-Elements. You build layers, hyper keys and tap/hold remaps visually, and it writes the Karabiner configuration for you."}},
+{"@type":"Question","name":"Do I need to edit karabiner.json by hand?","acceptedAnswer":{"@type":"Answer","text":"No. KāKLayers compiles your layers into Karabiner complex modifications and merges them into karabiner.json, backing the file up first and replacing only the rules it created."}},
+{"@type":"Question","name":"How do I make caps lock a hyper key or escape/control key?","acceptedAnswer":{"@type":"Answer","text":"Use the built-in presets in the Library menu, such as Caps Lock to Escape on tap and Control on hold, or a Hyper key, then click Apply to Karabiner."}},
+{"@type":"Question","name":"What are Karabiner layers?","acceptedAnswer":{"@type":"Answer","text":"A layer changes what keys do while you hold a trigger key, for example holding Caps Lock to turn H, J, K and L into arrow keys. KāKLayers builds them with Karabiner variables so you never write that rule yourself."}},
+{"@type":"Question","name":"Is KāKLayers free and does it work on Apple Silicon?","acceptedAnswer":{"@type":"Answer","text":"It is free under the MIT license and runs natively on macOS 13 or later."}}
+]}
+</script>
 <style>
   :root { --bg:#fbfaf8; --fg:#1d1d1f; --muted:#6e6e73; --card:#ffffff; --line:#e6e3de; --accent:#4f8ef7; --accent-fg:#fff; --pink:#f3a6c0; }
   @media (prefers-color-scheme: dark) { :root { --bg:#141416; --fg:#f5f5f7; --muted:#a1a1a6; --card:#1e1e21; --line:#2e2e32; --accent:#6aa3ff; --accent-fg:#0b0b0c; } }
@@ -47,12 +74,12 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">🍰 KāKLayers</div>
-    <nav><a href="#features">Features</a><a href="#gallery">Gallery</a><a href="#install">Install</a><a href="https://github.com/ekoekode/kaklayers">GitHub</a></nav>
+    <nav><a href="#features">Features</a><a href="#gallery">Gallery</a><a href="#faq">FAQ</a><a href="#install">Install</a><a href="https://github.com/ekoekode/kaklayers">GitHub</a></nav>
   </header>
 
   <div class="hero">
     <h1><span class="cake">🍰</span> Layer your keyboard.<br>Skip the JSON.</h1>
-    <p class="lead">A native Mac app for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>. Build super keys, layers and advanced key workflows by clicking the keys you already know.</p>
+    <p class="lead">The visual <b>Karabiner-Elements GUI</b> for Mac. A free, native config editor for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>. Build super keys, layers and advanced key workflows by clicking the keys you already know.</p>
     <a class="btn primary" href="https://github.com/ekoekode/kaklayers/releases">Download for macOS</a>
     <a class="btn ghost" href="https://github.com/ekoekode/kaklayers">View on GitHub</a>
     <div class="shot"><img src="img/nav-light.png" alt="KāKLayers: a Navigate layer with hjkl mapped to arrow keys, shown on a full keyboard"></div>
@@ -85,6 +112,17 @@
       <figure><div class="shot"><img loading="lazy" src="img/numpad-light.png" alt="Numpad layer on the home row"></div><figcaption>Numpad layer: a number pad under your right hand.</figcaption></figure>
       <figure><div class="shot"><img loading="lazy" src="img/nav-dark.png" alt="Navigate layer in dark mode"></div><figcaption>Dark mode, with a modifier variant (⌘H) on the Navigate layer.</figcaption></figure>
       <figure><div class="shot"><img loading="lazy" src="img/media-dark.png" alt="Top row switched to the media keys"></div><figcaption>Media row: bind the keys your top row sends without fn.</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>Karabiner GUI: common questions</h2>
+    <div class="grid">
+      <div class="card"><h3>Is there a GUI for Karabiner-Elements?</h3><p>Yes. KāKLayers is a free, open-source, native Mac GUI for Karabiner-Elements. You build layers, hyper keys and tap/hold remaps visually and it writes the configuration for you.</p></div>
+      <div class="card"><h3>Do I have to edit karabiner.json?</h3><p>No. It compiles your layers into Karabiner complex modifications and merges them in, backing the file up first and replacing only the rules it created.</p></div>
+      <div class="card"><h3>How do I make Caps Lock a hyper or escape/control key?</h3><p>Pick a preset from the Library menu, such as Caps Lock to Escape on tap and Control on hold, or a Hyper key, then click Apply to Karabiner.</p></div>
+      <div class="card"><h3>What is a keyboard layer?</h3><p>A layer changes what keys do while you hold a trigger, such as holding Caps Lock to turn H, J, K and L into arrow keys.</p></div>
+      <div class="card"><h3>Is it free? Which Macs?</h3><p>Free under the MIT license, native on macOS 13 or later, including Apple Silicon.</p></div>
     </div>
   </section>
 
