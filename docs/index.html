@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KāKLayers · a visual configurator for Karabiner-Elements</title>
+<meta name="description" content="Build super keys, keyboard layers and advanced key workflows for Karabiner-Elements by clicking keys, not writing JSON.">
+<style>
+  :root { --bg:#fbfaf8; --fg:#1d1d1f; --muted:#6e6e73; --card:#ffffff; --line:#e6e3de; --accent:#4f8ef7; --accent-fg:#fff; --pink:#f3a6c0; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141416; --fg:#f5f5f7; --muted:#a1a1a6; --card:#1e1e21; --line:#2e2e32; --accent:#6aa3ff; --accent-fg:#0b0b0c; } }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 20px; }
+  header.top { display:flex; align-items:center; justify-content:space-between; padding:22px 0; }
+  .brand { font-weight:700; font-size:20px; letter-spacing:-.01em; }
+  nav a { margin-left:22px; color:var(--muted); font-size:15px; } nav a:hover { color:var(--fg); text-decoration:none; }
+  .hero { text-align:center; padding:48px 0 28px; }
+  .hero h1 { font-size:clamp(36px,6vw,64px); line-height:1.05; letter-spacing:-.03em; margin:0 0 18px; }
+  .hero h1 .cake { display:inline-block; transform:translateY(2px); }
+  .hero p.lead { font-size:clamp(18px,2.4vw,23px); color:var(--muted); max-width:700px; margin:0 auto 28px; }
+  .btn { display:inline-block; padding:12px 22px; border-radius:12px; font-weight:600; font-size:16px; }
+  .btn.primary { background:var(--accent); color:var(--accent-fg); } .btn.primary:hover { text-decoration:none; filter:brightness(1.05); }
+  .btn.ghost { border:1px solid var(--line); color:var(--fg); margin-left:10px; background:var(--card); } .btn.ghost:hover { text-decoration:none; }
+  .shot { margin:44px auto 0; border-radius:14px; overflow:hidden; border:1px solid var(--line); box-shadow:0 30px 80px -30px rgba(0,0,0,.35); background:var(--card); }
+  .shot img { display:block; width:100%; height:auto; }
+  section { padding:72px 0 0; }
+  h2 { font-size:clamp(26px,3.6vw,38px); letter-spacing:-.02em; margin:0 0 12px; line-height:1.15; }
+  .sub { color:var(--muted); max-width:680px; margin:0 0 36px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; }
+  .card h3 { margin:0 0 6px; font-size:18px; letter-spacing:-.01em; } .card p { margin:0; color:var(--muted); font-size:15.5px; }
+  .card .ic { font-size:26px; margin-bottom:10px; display:block; }
+  .twocol { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:18px; }
+  figure { margin:0; } figure .shot { margin:0; }
+  figcaption { color:var(--muted); font-size:14.5px; margin-top:10px; }
+  .why { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:34px; }
+  .why p { margin:0; font-size:19px; max-width:760px; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; overflow-x:auto; font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em; }
+  footer { padding:64px 0 48px; color:var(--muted); font-size:14.5px; text-align:center; }
+  @media (max-width:600px) { nav a { margin-left:14px; } .btn.ghost { margin:10px 0 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">🍰 KāKLayers</div>
+    <nav><a href="#features">Features</a><a href="#gallery">Gallery</a><a href="#install">Install</a><a href="https://github.com/ekoekode/kaklayers">GitHub</a></nav>
+  </header>
+
+  <div class="hero">
+    <h1><span class="cake">🍰</span> Layer your keyboard.<br>Skip the JSON.</h1>
+    <p class="lead">A native Mac app for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>. Build super keys, layers and advanced key workflows by clicking the keys you already know.</p>
+    <a class="btn primary" href="https://github.com/ekoekode/kaklayers/releases">Download for macOS</a>
+    <a class="btn ghost" href="https://github.com/ekoekode/kaklayers">View on GitHub</a>
+    <div class="shot"><img src="img/nav-light.png" alt="KāKLayers: a Navigate layer with hjkl mapped to arrow keys, shown on a full keyboard"></div>
+  </div>
+
+  <section id="why">
+    <div class="why"><p>Karabiner-Elements is wonderful, and its rule format is powerful. I wanted a faster, more visual way to build layers and tap/hold keys without opening a JSON file, so I built one. Your whole keyboard stays in view, every layer has its own colour, and the advanced options live right below it.</p></div>
+  </section>
+
+  <section id="features">
+    <h2>Everything on one screen</h2>
+    <p class="sub">The full keyboard runs across the top. Click a key and shape what it does underneath.</p>
+    <div class="grid">
+      <div class="card"><span class="ic">⌨️</span><h3>Super keys &amp; layers</h3><p>Tap <code>~</code> for <code>~</code>, hold it for a whole new layer. Triggers can be a combo like ⌘⌃⌥⇧.</p></div>
+      <div class="card"><span class="ic">🎨</span><h3>Colour &amp; shape per layer</h3><p>Distinct colours plus distinct shapes, so layers stay clear for everyone. Labels never get cut off.</p></div>
+      <div class="card"><span class="ic">⏱</span><h3>Press, tap, hold, double-tap, release</h3><p>Chain key presses, delays, shell commands, apps, URLs, media keys and more in any order.</p></div>
+      <div class="card"><span class="ic">🔴</span><h3>Record, don't type</h3><p>Press the combo you want and it is captured. Add modifier variants and two-key chords.</p></div>
+      <div class="card"><span class="ic">🎯</span><h3>Per-app &amp; per-device</h3><p>Only in Safari, everywhere except Terminal, or only on one keyboard. Pick apps from a list.</p></div>
+      <div class="card"><span class="ic">🛡</span><h3>Safe to try</h3><p>Backs up <code>karabiner.json</code> before every change and only replaces the rules it made. Simulate before you apply.</p></div>
+      <div class="card"><span class="ic">🎛</span><h3>The whole keyboard</h3><p>ANSI, ISO and JIS, number pad, F13–F19, and a switch for the media-key top row.</p></div>
+      <div class="card"><span class="ic">🌗</span><h3>Native and fast</h3><p>SwiftUI, light and dark mode, no web view and no network access.</p></div>
+    </div>
+  </section>
+
+  <section id="gallery">
+    <h2>A closer look</h2>
+    <p class="sub">The same app in light and dark, on different layers.</p>
+    <div class="twocol">
+      <figure><div class="shot"><img loading="lazy" src="img/hyper-light.png" alt="Hyper layer launching Terminal, Safari, Mail and Notes"></div><figcaption>Hyper layer: letters launch apps and scripts.</figcaption></figure>
+      <figure><div class="shot"><img loading="lazy" src="img/numpad-light.png" alt="Numpad layer on the home row"></div><figcaption>Numpad layer: a number pad under your right hand.</figcaption></figure>
+      <figure><div class="shot"><img loading="lazy" src="img/nav-dark.png" alt="Navigate layer in dark mode"></div><figcaption>Dark mode, with a modifier variant (⌘H) on the Navigate layer.</figcaption></figure>
+      <figure><div class="shot"><img loading="lazy" src="img/media-dark.png" alt="Top row switched to the media keys"></div><figcaption>Media row: bind the keys your top row sends without fn.</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p class="sub">Needs macOS 13 or later and Karabiner-Elements. Download from <a href="https://github.com/ekoekode/kaklayers/releases">Releases</a>, or build it yourself with only the Command Line Tools:</p>
+<pre>git clone https://github.com/ekoekode/kaklayers.git
+cd kaklayers
+./scripts/package.sh</pre>
+    <p class="sub">The app is ad-hoc signed and not notarized. On first launch, right-click it and choose <b>Open</b>.</p>
+  </section>
+
+  <footer>Open source under the <a href="https://github.com/ekoekode/kaklayers/blob/main/LICENSE">MIT license</a> · Not affiliated with Karabiner-Elements</footer>
+</div>
+</body>
+</html>

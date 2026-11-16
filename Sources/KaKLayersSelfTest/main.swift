@@ -1,0 +1,320 @@
+import Foundation
+import KaKLayersCore
+
+struct CompilerTests {
+    func manips(_ p: Project, rule: Int = 0) -> [JSON] {
+        KarabinerCompiler.rules(for: p)[rule]["manipulators"] as! [JSON]
+    }
+    func dict(_ v: Any?) -> NSDictionary { v as! NSDictionary }
+
+    /// `~` tapped = `~`, held = Nav layer; layer binds h -> left_arrow.
+    func testSuperKeyTapHoldLayer() {
+        let nav = Layer(id: "nav", name: "Nav", colorHex: "#4F8EF7",
+                        triggerKeys: ["grave_accent_and_tilde"],
+                        tapAction: [.key(KeyCombo(key: "grave_accent_and_tilde", modifiers: ["shift"]))])
+        let p = Project(layers: [nav], bindings: [
+            KeyBinding(layerId: "nav", fromKeys: ["h"], onPress: [.key(KeyCombo(key: "left_arrow"))])])
+        let m = manips(p)
+        expect((m.count) == (2))
+        // layer binding first, trigger last
+        expect(((m[0]["conditions"] as! [JSON])[0]["name"] as? String) == "layer_nav")
+        let trig = m[1]
+        expect(((trig["to"] as! [JSON])[0]["set_variable"] as! NSDictionary) == (["name": "layer_nav", "value": 1, "key_up_value": 0] as NSDictionary))
+        expect(((trig["to_if_alone"] as! [JSON])[0]["key_code"] as? String) == ("grave_accent_and_tilde"))
+        expect(((trig["parameters"] as! JSON)["basic.to_if_alone_timeout_milliseconds"] as? Int) == (200))
+    }
+
+    func testHyperChordTrigger() {
+        let hyper = Layer(id: "hyper", name: "Hyper", colorHex: "#E5484D",
+                          triggerKeys: ["left_command", "left_control", "left_shift"])
+        let t = manips(Project(layers: [hyper]))[0]
+        let from = t["from"] as! JSON
+        expect(((from["simultaneous"] as! [JSON]).count) == (3))
+    }
+
+    func testToggleLayerHasOffManipulatorFirst() {
+        let l = Layer(id: "t", name: "T", colorHex: "#000", mode: .toggle, triggerKeys: ["caps_lock"])
+        let m = manips(Project(layers: [l]))
+        expect((m.count) == (2))
+        expect((((m[0]["to"] as! [JSON])[0]["set_variable"] as! JSON)["value"] as? Int) == (0))
+        expect((((m[1]["to"] as! [JSON])[0]["set_variable"] as! JSON)["value"] as? Int) == (1))
+    }
+
+    func testDelayAndShellChain() {
+        let b = KeyBinding(fromKeys: ["f12"], onPress: [
+            .key(KeyCombo(key: "a")), .delay(300), .shell("say 'hi'"), .openApp("com.apple.Terminal")])
+        let to = manips(Project(bindings: [b]))[0]["to"] as! [JSON]
+        expect((to[1]["hold_down_milliseconds"] as? Int) == (300))
+        expect((to[2]["shell_command"] as? String) == ("say 'hi'"))
+        expect((to[3]["shell_command"] as? String) == ("open -b 'com.apple.Terminal'"))
+    }
+
+    func testHoldReleaseAndAppCondition() {
+        let b = KeyBinding(fromKeys: ["a"], onTap: [.key(KeyCombo(key: "a"))], onHold: [.key(KeyCombo(key: "b"))],
+                        onRelease: [.shell("true")], holdThresholdMs: 400,
+                        apps: ["com.apple.Terminal"], appsExclude: true)
+        let m = manips(Project(bindings: [b]))[0]
+        expect((m["to_if_alone"]) != nil)
+        expect((m["to_if_held_down"]) != nil)
+        expect((m["to_after_key_up"]) != nil)
+        expect(((m["parameters"] as! JSON)["basic.to_if_held_down_threshold_milliseconds"] as? Int) == (400))
+        let c = (m["conditions"] as! [JSON])[0]
+        expect((c["type"] as? String) == ("frontmost_application_unless"))
+        expect(((c["bundle_identifiers"] as! [String])[0]) == ("^com\\.apple\\.Terminal$"))
+    }
+
+    func testDoubleTapProducesTwoManipulators() {
+        let b = KeyBinding(fromKeys: ["left_shift"], onTap: [.key(KeyCombo(key: "a"))], onDoubleTap: [.key(KeyCombo(key: "caps_lock"))])
+        let m = manips(Project(bindings: [b]))
+        expect((m.count) == (2))
+        expect((m[1]["to_delayed_action"]) != nil)
+        expect(((m[0]["conditions"] as! [JSON])[0]["type"] as? String) == ("variable_if"))
+    }
+
+    func testKeyCodesAreUnique() {
+        expect((Set(Keycodes.all.map(\.code)).count) == (Keycodes.all.count))
+        expect((Set(Keycodes.all.map(\.mac)).count) == (Keycodes.all.count))
+    }
+
+    func testApplyMergesAndKeepsUserRules() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("layers-test-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let user: JSON = ["global": ["check_for_updates_on_startup": true],
+                          "profiles": [["name": "P", "selected": true, "virtual_hid_keyboard": ["country_code": 0],
+                                        "complex_modifications": ["rules": [["description": "mine", "manipulators": []], ["description": "[Layers] old", "manipulators": []]]]]]]
+        try JSONSerialization.data(withJSONObject: user).write(to: dir.appendingPathComponent("karabiner.json"))
+        let p = Project(bindings: [KeyBinding(fromKeys: ["a"], onPress: [.key(KeyCombo(key: "b"))])])
+        let w = ConfigWriter(dir: dir)
+        _ = try w.apply(p)
+        let r = try w.apply(p) // idempotent
+        expect((r.backupPath) != nil)
+        let out = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("karabiner.json"))) as! JSON
+        let profile = (out["profiles"] as! [JSON])[0]
+        expect((profile["virtual_hid_keyboard"]) != nil)
+        expect((out["global"]) != nil)
+        let rules = (profile["complex_modifications"] as! JSON)["rules"] as! [JSON]
+        expect((rules.count) == (2))   // old "[Layers] " rule replaced, user rule kept
+        expect(!rules.contains { ($0["description"] as? String) == "[Layers] old" })
+        expect((rules.last?["description"] as? String) == ("mine"))
+        expect((try w.restoreLatestBackup()) != nil)
+    }
+}
+
+
+func testPresetsCompileAndAreClean() {
+    for preset in Presets.all {
+        var p = Project(); p.add(preset)
+        let rules = KarabinerCompiler.rules(for: p)
+        expect(!rules.isEmpty)
+        expect((try? KarabinerCompiler.jsonString(["rules": rules])) != nil)
+        expect(ConflictChecker.check(p).allSatisfy { $0.severity == .info })
+    }
+}
+func testConflictShadowedTrigger() {
+    let l = Layer(id: "x", name: "X", colorHex: "#000", triggerKeys: ["tab"], tapAction: [.key(KeyCombo(key: "tab"))])
+    let p = Project(layers: [l], bindings: [KeyBinding(fromKeys: ["tab"], onPress: [.key(KeyCombo(key: "a"))])])
+    expect(ConflictChecker.check(p).contains { $0.severity == .warning })
+}
+func testImporterSkipsComplex() throws {
+    let json = #"{"rules":[{"description":"r","manipulators":[{"type":"basic","from":{"key_code":"a"},"to":[{"key_code":"b"}]},{"type":"basic","from":{"key_code":"c"},"to_if_alone":[{"key_code":"d"}],"to":[{"key_code":"e"}]}]}]}"#
+    let r = try Importer.importSimple(data: Data(json.utf8))
+    expect(r.bindings.count == 1); expect(r.skipped == 1)
+}
+
+func testSimulator() {
+    let nav = Layer(id: "nav", name: "Nav", colorHex: "#000", triggerKeys: ["grave_accent_and_tilde"])
+    let p = Project(layers: [nav], bindings: [KeyBinding(layerId: "nav", fromKeys: ["h"], onPress: [.key(KeyCombo(key: "left_arrow"))]),
+                                              KeyBinding(fromKeys: ["h"], onPress: [.key(KeyCombo(key: "x"))])])
+    expect(Simulator.resolve(p, held: ["nav"], key: "h").layer?.id == "nav")
+    expect(Simulator.resolve(p, held: [], key: "h").layer == nil && Simulator.resolve(p, held: [], key: "h").binding != nil)
+    expect(Simulator.resolve(p, held: [], key: "grave_accent_and_tilde").layer?.id == "nav")
+    expect(Simulator.resolve(p, held: [], key: "q").binding == nil)
+}
+
+func testInputModifiers() {
+    let b = KeyBinding(fromKeys: ["h"], fromModifiers: ["command"], onPress: [.key(KeyCombo(key: "left_arrow"))])
+    let m = (KarabinerCompiler.rules(for: Project(bindings: [b]))[0]["manipulators"] as! [JSON])[0]
+    let mods = (m["from"] as! JSON)["modifiers"] as! JSON
+    expect((mods["mandatory"] as! [String]) == ["command"]); expect((mods["optional"] as! [String]) == ["any"])
+}
+
+func testVariantsOrderedAndResolved() {
+    let plain = KeyBinding(fromKeys: ["h"], onPress: [.key(KeyCombo(key: "left_arrow"))])
+    let cmd = KeyBinding(fromKeys: ["h"], fromModifiers: ["command"], onPress: [.key(KeyCombo(key: "home"))])
+    let p = Project(bindings: [plain, cmd])          // plain defined first on purpose
+    let ms = KarabinerCompiler.rules(for: p)[0]["manipulators"] as! [JSON]
+    expect(((ms[0]["from"] as! JSON)["modifiers"] as! JSON)["mandatory"] != nil)   // cmd variant must come first
+    expect(Simulator.resolve(p, held: [], key: "h", mods: ["command"]).binding?.fromModifiers == ["command"])
+    expect(Simulator.resolve(p, held: [], key: "h").binding?.fromModifiers.isEmpty == true)
+    expect(p.binding(layer: nil, key: "h", mods: ["command"]) != nil)
+}
+
+func testJISHasItsOwnKeys() {
+    let codes = Set(Keycodes.layout(.jis).map(\.code))
+    for c in ["international3", "international1", "japanese_eisuu", "japanese_kana", "non_us_pound"] { expect(codes.contains(c)); expect(Keycodes.byCode[c] != nil) }
+    expect(!codes.contains("grave_accent_and_tilde") && !codes.contains("backslash"))
+}
+func testExtendedKeysAndMediaRow() {
+    for kind in Keycodes.LayoutKind.allCases {
+        let codes = Set(Keycodes.layout(kind).map(\.code))
+        for n in 13...19 { expect(codes.contains("f\(n)")) }
+        let media = Keycodes.layout(kind, mediaRow: true)
+        expect(media.count == Keycodes.layout(kind).count)
+        expect(media.contains { $0.code == "mission_control" } && !media.contains { $0.code == "f3" })
+        expect(Set(media.map(\.code)).count == media.count)
+    }
+    // each media key lands in the JSON field Karabiner expects
+    expect(Keycodes.codeField("mission_control") == "apple_vendor_keyboard_key_code")
+    expect(Keycodes.codeField("illumination_up") == "apple_vendor_top_case_key_code")
+    expect(Keycodes.codeField("play_or_pause") == "consumer_key_code" && Keycodes.codeField("f13") == "key_code")
+    let b = KeyBinding(fromKeys: ["mission_control"], onPress: [.consumer("launchpad")])
+    let m = (KarabinerCompiler.rules(for: Project(bindings: [b]))[0]["manipulators"] as! [JSON])[0]
+    expect(((m["from"] as! JSON)["apple_vendor_keyboard_key_code"] as? String) == "mission_control")
+    expect(((m["to"] as! [JSON])[0]["apple_vendor_keyboard_key_code"] as? String) == "launchpad")
+}
+func testLayoutsDoNotOverlap() {
+    for kind in Keycodes.LayoutKind.allCases {
+        let keys = Keycodes.layout(kind)
+        expect(Set(keys.map(\.code)).count == keys.count)
+        for (i, a) in keys.enumerated() { for b in keys[(i+1)...] {
+            let overlap = a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01
+            if overlap { print("  overlap \(kind): \(a.code) / \(b.code)"); expect(false) }
+        } }
+        expect(keys.allSatisfy { $0.x + $0.w <= Keycodes.totalWidth + 0.01 && $0.y + $0.h <= Keycodes.totalHeight + 0.01 })
+    }
+}
+
+func testDeviceCondition() {
+    let b = KeyBinding(fromKeys: ["a"], onPress: [.key(KeyCombo(key: "b"))], devices: [DeviceID(vendorId: 1452, productId: 834)])
+    let c = ((KarabinerCompiler.rules(for: Project(bindings: [b]))[0]["manipulators"] as! [JSON])[0]["conditions"] as! [JSON])[0]
+    expect(c["type"] as? String == "device_if")
+    let id = (c["identifiers"] as! [JSON])[0]
+    expect(id["vendor_id"] as? Int == 1452 && id["product_id"] as? Int == 834)
+}
+
+func testDuplicateBindingWarning() {
+    let a = KeyBinding(fromKeys: ["a"], onPress: [.key(KeyCombo(key: "b"))])
+    let c = KeyBinding(fromKeys: ["a"], onPress: [.key(KeyCombo(key: "c"))])
+    expect(ConflictChecker.check(Project(bindings: [a, c])).contains { $0.severity == .warning })
+    expect(ConflictChecker.check(Project(bindings: [a])).isEmpty)
+}
+func testChordsPrecedeSingleKeys() {
+    let single = KeyBinding(fromKeys: ["j"], onPress: [.key(KeyCombo(key: "down_arrow"))])
+    let chord = KeyBinding(fromKeys: ["j", "k"], onPress: [.key(KeyCombo(key: "escape"))])
+    let p = Project(bindings: [single, chord])   // single defined first on purpose
+    let ms = KarabinerCompiler.rules(for: p)[0]["manipulators"] as! [JSON]
+    expect((ms[0]["from"] as! JSON)["simultaneous"] != nil)
+    expect(((ms[0]["from"] as! JSON)["simultaneous"] as! [JSON]).count == 2)
+    expect((ms[0]["parameters"] as! JSON)["basic.simultaneous_threshold_milliseconds"] as? Int == 100)
+    expect((ms[1]["from"] as! JSON)["key_code"] as? String == "j")
+    expect(p.chords(layer: nil, containing: "k").count == 1)
+    expect(p.binding(layer: nil, keys: ["j", "k"], mods: []) != nil)
+    expect(ConflictChecker.check(p).allSatisfy { $0.severity == .info })
+}
+func testLayerReorder() {
+    func L(_ id: String) -> Layer { Layer(id: id, name: id, colorHex: "#000", triggerKeys: [id]) }
+    var p = Project(layers: [L("a"), L("b"), L("c")])
+    p.moveLayer("c", before: "a"); expect(p.layers.map(\.id) == ["c", "a", "b"])
+    p.moveLayer("c", before: nil); expect(p.layers.map(\.id) == ["a", "b", "c"])
+    p.moveLayer("a", before: "a"); expect(p.layers.map(\.id) == ["a", "b", "c"])
+    p.shiftLayer("a", by: -1); expect(p.layers.map(\.id) == ["a", "b", "c"])
+    p.shiftLayer("a", by: 1); expect(p.layers.map(\.id) == ["b", "a", "c"])
+    // order is rule order (priority)
+    let names = KarabinerCompiler.rules(for: p).map { $0["description"] as! String }
+    expect(names == ["[KaKLayers] b", "[KaKLayers] a", "[KaKLayers] c"])
+}
+func testLegendsFitAtMinimumUnit() {
+    for kind in Keycodes.LayoutKind.allCases {
+        for k in Keycodes.layout(kind) {
+            let w = TextFit.width(k.label, size: Metrics.legendFont, weight: 0.23)
+            let budget = Metrics.legendBudget(unit: Metrics.minKeyUnit, widthUnits: k.w)
+            if w > budget { print("  legend too wide [\(kind)] \(k.code) '\(k.label)' \(w) > \(budget)"); expect(false) }
+            expect(!k.label.contains("…") && !k.label.contains("..."))
+        }
+    }
+}
+
+func testCapTextFitsAndNeverEllipsizes() {
+    let hyperF10 = KeyCombo(key: "f10", modifiers: ["command", "control", "option", "shift"])
+    let threeMods = KeyCombo(key: "f10", modifiers: ["command", "option", "shift"])
+    let samples: [[Action]] = [
+        [.key(KeyCombo(key: "a"))], [.key(hyperF10)], [.key(threeMods)],
+        [.key(KeyCombo(key: "left_arrow")), .delay(300), .shell("a very long command --with --many --flags"), .openApp("com.apple.Terminal")],
+        [.delay(12000)], [.consumer("display_brightness_increment")], [.openURL("https://example.com/a/very/long/path")],
+        [.key(KeyCombo(key: "a")), .key(KeyCombo(key: "b")), .key(KeyCombo(key: "c")), .key(KeyCombo(key: "d")), .key(KeyCombo(key: "e")), .key(KeyCombo(key: "f"))],
+        [.inputSource("com.apple.keylayout.US"), .stickyModifier("left_shift"), .mouse("button5"), .setVariable(name: "x", value: 1)],
+    ]
+    for unit in [Metrics.minKeyUnit, 60, Metrics.maxKeyUnit] {
+        let budget = Metrics.rowBudget(unit: unit)
+        for acts in samples {
+            let b = KeyBinding(fromKeys: ["a"], onPress: acts, onTap: acts, onHold: acts, onRelease: acts, onDoubleTap: acts)
+            let c = KeyGlyphs.content(for: b, budget: budget)
+            expect(c.rows.count == 2 && c.moreRoles == 3)
+            for r in c.rows {
+                let w = TextFit.width(r.text, size: Metrics.rowFont)
+                if w > budget { print("  row too wide at unit \(unit): '\(r.text)' \(w) > \(budget)"); expect(false) }
+                expect(!r.text.isEmpty && !r.text.contains("…") && !r.text.contains("..."))
+            }
+        }
+    }
+}
+if CommandLine.arguments.contains("--glyphs") {
+    let u = Metrics.minKeyUnit; let bud = Metrics.rowBudget(unit: u)
+    print("budget at unit \(u): \(bud)pt")
+    let hyper = KeyCombo(key: "f10", modifiers: ["command", "control", "option", "shift"])
+    for acts: [Action] in [[.key(KeyCombo(key: "left_arrow"))], [.key(hyper)], [.key(KeyCombo(key: "h", modifiers: ["command", "shift"]))],
+        [.key(KeyCombo(key: "a")), .delay(300), .shell("x"), .openApp("com.apple.Terminal")], [.delay(12000)], [.key(KeyCombo(key: "a")), .key(KeyCombo(key: "b")), .key(KeyCombo(key: "c")), .key(KeyCombo(key: "d"))]] {
+        let t = KeyGlyphs.row(acts, budget: bud); print("'\(t)'  \(TextFit.width(t, size: Metrics.rowFont))pt")
+    }
+    print("widest legend:", Keycodes.layout(.ansi).map { ($0.label, TextFit.width($0.label, size: Metrics.legendFont, weight: 0.23) / Metrics.legendBudget(unit: u, widthUnits: $0.w)) }.max { $0.1 < $1.1 }!)
+    exit(0)
+}
+if CommandLine.arguments.contains("--apply-starter") {
+    let nav = Layer(id: "nav", name: "Nav", colorHex: "#4F8EF7", triggerKeys: ["grave_accent_and_tilde"],
+                    tapAction: [.key(KeyCombo(key: "grave_accent_and_tilde", modifiers: ["shift"]))])
+    func a(_ f: String, _ t: String) -> KeyBinding { KeyBinding(layerId: "nav", fromKeys: [f], onPress: [.key(KeyCombo(key: t))]) }
+    let p = Project(layers: [nav], bindings: [a("h", "left_arrow"), a("j", "down_arrow"), a("k", "up_arrow"), a("l", "right_arrow")])
+    let r = try ConfigWriter().apply(p)
+    print("applied: \(r.ruleCount) rule(s) -> \(r.configPath); backup: \(r.backupPath ?? "none (no previous file)")")
+    exit(0)
+}
+if let i = CommandLine.arguments.firstIndex(of: "--emit"), i + 1 < CommandLine.arguments.count {
+    let dir = URL(fileURLWithPath: CommandLine.arguments[i + 1])
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    var projects: [(String, Project)] = Presets.all.map { pr in var p = Project(); p.add(pr); return (pr.name.replacingOccurrences(of: " ", with: "_").filter { $0.isLetter || $0.isNumber || $0 == "_" }, p) }
+    // kitchen sink: every feature at once
+    let nav = Layer(id: "nav", name: "Nav", colorHex: "#4F8EF7", triggerKeys: ["grave_accent_and_tilde"], tapAction: [.key(KeyCombo(key: "grave_accent_and_tilde", modifiers: ["shift"]))])
+    let hyper = Layer(id: "hyper", name: "Hyper", colorHex: "#E5484D", triggerKeys: ["left_command", "left_control", "left_shift"])
+    let tog = Layer(id: "tog", name: "Toggle", colorHex: "#30A46C", mode: .toggle, triggerKeys: ["f19"])
+    let sink = Project(name: "Sink", layers: [nav, hyper, tog], bindings: [
+        KeyBinding(layerId: "nav", fromKeys: ["h"], onPress: [.key(KeyCombo(key: "left_arrow"))]),
+        KeyBinding(layerId: "nav", fromKeys: ["h"], fromModifiers: ["command"], onPress: [.key(KeyCombo(key: "home"))]),
+        KeyBinding(layerId: "hyper", fromKeys: ["t"], onPress: [.openApp("com.apple.Terminal"), .delay(300), .key(KeyCombo(key: "n", modifiers: ["command"]))]),
+        KeyBinding(layerId: "tog", fromKeys: ["a"], onPress: [.shell("say 'it works'"), .consumer("mute"), .stickyModifier("left_shift")]),
+        KeyBinding(fromKeys: ["left_shift"], onTap: [.key(KeyCombo(key: "a"))], onDoubleTap: [.key(KeyCombo(key: "caps_lock"))]),
+        KeyBinding(fromKeys: ["f"], onTap: [.key(KeyCombo(key: "f"))], onHold: [.key(KeyCombo(key: "g"))], onRelease: [.openURL("https://example.com")],
+                   apps: ["com.apple.Terminal"], appsExclude: true, devices: [DeviceID(vendorId: 1452, productId: 834)]),
+        KeyBinding(fromKeys: ["j", "k"], onPress: [.key(KeyCombo(key: "escape"))], onTap: [.key(KeyCombo(key: "escape"))]),
+        KeyBinding(fromKeys: ["d"], onPress: [.mouse("button1"), .inputSource("com.apple.keylayout.US")]),
+    ])
+    projects.append(("KitchenSink", sink))
+    for (name, p) in projects { try KarabinerCompiler.jsonString(KarabinerCompiler.compile(p)).write(to: dir.appendingPathComponent("\(name).json"), atomically: true, encoding: .utf8) }
+    print("emitted \(projects.count) files"); exit(0)
+}
+var failures = 0
+func expect(_ ok: Bool, _ line: Int = #line) { if !ok { failures += 1; print("  FAIL at test line \(line)") } }
+let t = CompilerTests()
+let cases: [(String, () throws -> Void)] = [
+  ("superKeyTapHoldLayer", t.testSuperKeyTapHoldLayer), ("hyperChordTrigger", t.testHyperChordTrigger),
+  ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
+  ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
+  ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+for (name, fn) in cases {
+  let before = failures
+  do { try fn() } catch { failures += 1; print("  ERROR \(error)") }
+  print(failures == before ? "PASS \(name)" : "FAIL \(name)")
+}
+print(failures == 0 ? "ALL PASSED" : "\(failures) FAILURES")
+exit(failures == 0 ? 0 : 1)
