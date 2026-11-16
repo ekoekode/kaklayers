@@ -90,8 +90,11 @@ struct KeyDragDrop: ViewModifier {
             content
                 .draggable("key:" + code)
                 .dropDestination(for: String.self) { items, _ in
+                    app.drop.target = nil
                     guard let s = items.first, s.hasPrefix("key:") else { return false }
-                    app.remap(from: String(s.dropFirst(4)), to: code); return true
+                    app.copySettings(from: String(s.dropFirst(4)), to: code); return true
+                } isTargeted: { on in
+                    if on { app.drop.target = code } else if app.drop.target == code { app.drop.target = nil }
                 }
         }
     }

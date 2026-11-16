@@ -21,6 +21,7 @@ KāKLayers builds the configuration; **Karabiner-Elements still does the remappi
 - **Super keys and layers.** Tap `~` and you still get `~`; hold it and the whole keyboard becomes a layer. Triggers can be one key or a combo such as ⌘⌃⌥⇧ (a "hyper" key).
 - **See everything.** The full keyboard, navigation cluster and number pad (ANSI, ISO and JIS) sit across the top. Each layer has its own colour *and* shape, so layers stay distinguishable for colour-blind users. Keys never truncate their labels.
 - **Press, tap, hold, double-tap, release.** Each key has five triggers. Chain steps in any order: key presses, delays, shell commands, open an app (pick from a list or browse), open a URL, media keys, mouse clicks, input-source switches.
+- **Copy and paste keys.** Select a key and press ⌘C, select another and press ⌘V to copy its whole setup (workflow, modifier variants, timings, apps, devices). Or drag one key onto another; the key under the cursor lights up so you can see where it will land.
 - **Modifier variants and chords.** Give ⌘H its own meaning on a layer, or bind two keys pressed together.
 - **Record, don't type.** Press the combo you want and the app records it.
 - **Per-app and per-device rules.** "Only in Safari", "everywhere except Terminal", or only on one keyboard.

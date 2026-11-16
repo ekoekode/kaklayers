@@ -123,6 +123,30 @@ func testCustomConfigFileAndProjectRoundTrip() throws {
     expect(try JSONDecoder().decode(Project.self, from: enc.encode(p)) == p)
 }
 
+func testCopyPasteKeySettings() {
+    var p = Project(layers: [Layer(id: "nav", name: "Nav", colorHex: "#4F8EF7", triggerKeys: ["caps_lock"])])
+    let plain = KeyBinding(layerId: "nav", fromKeys: ["h"], onPress: [.key(KeyCombo(key: "left_arrow")), .delay(50)], onHold: [.shell("say hi")],
+                           holdThresholdMs: 350, apps: ["com.apple.Safari"], appsExclude: true, devices: [DeviceID(vendorId: 1, productId: 2)], note: "n")
+    let variant = KeyBinding(layerId: "nav", fromKeys: ["h"], fromModifiers: ["command"], onPress: [.key(KeyCombo(key: "home"))])
+    let chord = KeyBinding(layerId: "nav", fromKeys: ["h", "j"], onPress: [.key(KeyCombo(key: "escape"))])
+    let old = KeyBinding(layerId: "nav", fromKeys: ["l"], onPress: [.key(KeyCombo(key: "right_arrow"))])
+    p.bindings = [plain, variant, chord, old]
+
+    let copied = p.keySettings(layer: "nav", key: "h")
+    expect(copied.count == 2)                                   // plain + ⌘ variant, not the chord
+    p.paste(copied, layer: "nav", key: "l")
+    let l = p.keySettings(layer: "nav", key: "l")
+    expect(l.count == 2 && !l.contains { $0.id == plain.id || $0.id == variant.id })   // fresh ids
+    let lp = l.first { $0.fromModifiers.isEmpty }!
+    expect(lp.onPress == plain.onPress && lp.onHold == plain.onHold && lp.holdThresholdMs == 350)
+    expect(lp.apps == ["com.apple.Safari"] && lp.appsExclude && lp.devices == plain.devices && lp.note == "n")
+    expect(!l.contains { $0.onPress == old.onPress })           // the old L binding was replaced
+    expect(p.keySettings(layer: "nav", key: "h").count == 2)    // source untouched
+    expect(p.bindings.contains { $0.fromKeys == ["h", "j"] })   // chords left alone
+    p.paste(copied, layer: nil, key: "l")                       // can paste into another layer
+    expect(p.keySettings(layer: nil, key: "l").count == 2)
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -331,7 +355,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

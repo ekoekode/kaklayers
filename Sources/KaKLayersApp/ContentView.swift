@@ -204,7 +204,7 @@ struct StatusBar: View {
     @EnvironmentObject var app: AppState
     var body: some View {
         HStack {
-            Text(app.status.isEmpty ? "Click a key or press it on your keyboard. Drag one key onto another to remap it." : app.status)
+            Text(app.status.isEmpty ? "Click a key or press it on your keyboard. Drag a key onto another, or ⌘C then ⌘V, to copy its settings." : app.status)
                 .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer()
         }.padding(.horizontal, Theme.gutter).background(Theme.window)

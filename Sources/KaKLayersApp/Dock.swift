@@ -23,7 +23,7 @@ struct DockView: View {
             VStack(spacing: 8) {
                 Image(systemName: "keyboard.badge.ellipsis").font(.system(size: 28)).foregroundStyle(.tertiary)
                 Text("Select a key").font(.system(size: 15, weight: .semibold))
-                Text("Click it, or press it on your keyboard. Drag one key onto another to remap it.")
+                Text("Click it, or press it on your keyboard. Drag a key onto another, or press ⌘C then ⌘V, to copy its settings.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

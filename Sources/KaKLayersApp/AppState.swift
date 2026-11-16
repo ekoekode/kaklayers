@@ -164,13 +164,35 @@ final class AppState: ObservableObject {
         } else { selectedKey = code }
     }
 
-    /// Dragging key A onto key B makes A send B (in the active layer).
-    func remap(from a: String, to b: String) {
-        guard a != b else { return }
-        selectedKey = a
-        variantMods = []
-        updateBinding(a) { $0.onPress = [.key(KeyCombo(key: b))] }
-        status = "\(Keycodes.label(a)) now sends \(Keycodes.label(b)) in \(project.layer(activeLayer)?.name ?? "Base")."
+    // MARK: Copy / paste / drag key settings
+    /// Not @Published: copying must not redraw the keyboard.
+    var keyClipboard: (key: String, layer: String?, settings: [KeyBinding])?
+    /// Observed only by each key's drop highlight.
+    let drop = DropModel()
+
+    private var activeLayerName: String { project.layer(activeLayer)?.name ?? "Base" }
+
+    func copyKeySettings(_ key: String) {
+        let s = project.keySettings(layer: activeLayer, key: key)
+        guard !s.isEmpty else { status = "Nothing to copy: \(Keycodes.label(key)) has no settings in \(activeLayerName)."; return }
+        keyClipboard = (key, activeLayer, s)
+        status = "Copied \(Keycodes.label(key))'s settings. Select another key and press ⌘V to paste."
+    }
+    func pasteKeySettings(to key: String) {
+        guard let c = keyClipboard else { status = "Nothing copied yet. Select a key with settings and press ⌘C."; return }
+        applyCopy(c.settings, from: c.key, fromLayer: c.layer, to: key)
+    }
+    /// Dragging key A onto key B copies A's settings (in the active layer) onto B.
+    func copySettings(from a: String, to b: String) {
+        let s = project.keySettings(layer: activeLayer, key: a)
+        guard !s.isEmpty else { status = "Nothing to copy: \(Keycodes.label(a)) has no settings in \(activeLayerName)."; return }
+        applyCopy(s, from: a, fromLayer: activeLayer, to: b)
+    }
+    private func applyCopy(_ settings: [KeyBinding], from a: String, fromLayer: String?, to b: String) {
+        if a == b && fromLayer == activeLayer { status = "That's the same key."; return }
+        project.paste(settings, layer: activeLayer, key: b)       // one change, so one undo step
+        selectedKey = b; variantMods = []
+        status = "Copied \(Keycodes.label(a))'s settings to \(Keycodes.label(b)) in \(activeLayerName)."
     }
 
     private var typeMonitor: Any?
@@ -179,8 +201,16 @@ final class AppState: ObservableObject {
         guard typeMonitor == nil else { return }
         typeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] ev in
             guard let self, self.recording == nil, !self.simulate else { return ev }
-            if !ev.modifierFlags.intersection([.command, .control, .option]).isEmpty { return ev }
             if let r = NSApp.keyWindow?.firstResponder, r is NSTextView || r is NSTextField { return ev }
+            // ⌘C / ⌘V copy and paste the selected key's settings (text fields keep their normal copy/paste)
+            if ev.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command], self.editingChord == nil, let k = self.selectedKey {
+                switch ev.charactersIgnoringModifiers?.lowercased() {
+                case "c": self.copyKeySettings(k); return nil
+                case "v" where self.keyClipboard != nil: self.pasteKeySettings(to: k); return nil
+                default: break
+                }
+            }
+            if !ev.modifierFlags.intersection([.command, .control, .option]).isEmpty { return ev }
             guard ev.keyCode != 48, let raw = Keycodes.byMac[Int(ev.keyCode)]?.code else { return ev }   // leave Tab for focus
             let k = self.mediaRow ? (Keycodes.mediaCode(forFunction: raw) ?? raw) : raw   // media row shows media keys in place of F1–F12
             self.selectedKey = k

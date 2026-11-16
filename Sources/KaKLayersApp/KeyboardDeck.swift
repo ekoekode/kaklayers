@@ -8,6 +8,28 @@ enum Badge: Hashable {
 
 /// Hover state lives apart from AppState so moving the mouse over keys never redraws the keyboard.
 /// The hover card only appears after the pointer rests on a key, so sweeping across the keyboard costs nothing.
+/// The key currently under a dragged key. Only each cap's DropHighlight observes it.
+final class DropModel: ObservableObject {
+    @Published var target: String?
+}
+
+/// Lights up the key under the cursor while another key is dragged onto it.
+struct DropHighlight: View {
+    let code: String
+    let tint: Color
+    @ObservedObject var model: DropModel
+    var body: some View {
+        if model.target == code {
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.cornerKey).fill(tint.opacity(0.28))
+                RoundedRectangle(cornerRadius: Theme.cornerKey + 2).stroke(tint.opacity(0.25), lineWidth: 8).padding(-3)
+                RoundedRectangle(cornerRadius: Theme.cornerKey).stroke(tint, lineWidth: 3)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+}
+
 final class HoverModel: ObservableObject {
     @Published var key: String? = nil
     private var work: DispatchWorkItem?
@@ -210,6 +232,7 @@ struct KeyCapView: View, Equatable {
             if inside { app.hover.enter(key.code) } else { app.hover.leave(key.code) }
         }
         .onTapGesture { app.tapKey(key.code) }
+        .overlay(DropHighlight(code: key.code, tint: m.isBase ? Color.accentColor : tint, model: app.drop))
         .modifier(KeyDragDrop(app: app, code: key.code))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(m.accessibility)

@@ -183,3 +183,17 @@ public struct Project: Codable, Hashable {
         layers.swapAt(i, j)
     }
 }
+
+public extension Project {
+    /// Everything configured on one key in one layer: the plain binding and any modifier variants
+    /// (workflow, timings, apps, devices). Chords that merely include the key are not part of it.
+    func keySettings(layer: String?, key: String) -> [KeyBinding] {
+        bindings.filter { $0.layerId == layer && $0.fromKeys == [key] && !$0.isEmpty }
+    }
+
+    /// Replaces the target key's single-key bindings in `layer` with copies of `settings` (fresh ids).
+    mutating func paste(_ settings: [KeyBinding], layer: String?, key: String) {
+        bindings.removeAll { $0.layerId == layer && $0.fromKeys == [key] }
+        bindings += settings.map { var b = $0; b.id = UUID(); b.layerId = layer; b.fromKeys = [key]; return b }
+    }
+}
