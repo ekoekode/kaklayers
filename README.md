@@ -1,16 +1,18 @@
 <h1 align="center">🍰 KāKLayers</h1>
-<p align="center"><b>A visual Karabiner-Elements GUI for Mac: a no-scripting config editor for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>.</b><br>
+<p align="center"><b>A visual GUI configurator for <a href="https://karabiner-elements.pqrs.org">Karabiner-Elements</a>: a no-scripting configuration builder for Mac.</b><br>
 Build super keys, keyboard layers and advanced key workflows by clicking keys, not by writing JSON.</p>
 
 <p align="center"><img src="docs/img/nav-light.png" alt="KāKLayers showing a Navigate layer with hjkl mapped to arrow keys" width="900"></p>
 
 **Website:** https://ekoekode.github.io/kaklayers/ · **Download:** [Releases](https://github.com/ekoekode/kaklayers/releases)
 
-*Keywords: Karabiner GUI, Karabiner-Elements GUI, Karabiner configurator, Karabiner config editor, Mac keyboard layers, hyper key, caps lock remap, tap and hold keys, macOS key remapper.*
+*Keywords: Karabiner configurator, Karabiner-Elements configurator, Karabiner GUI configurator, Karabiner config builder, Karabiner GUI, Mac keyboard layers, hyper key, caps lock remap, tap and hold keys, macOS key remapper.*
 
 ## Why this exists
 
 Karabiner-Elements is wonderful, and its rule format is powerful. The configurators around it are each good at something, but none of them gave me the thing I wanted: **a quick, visual way to build layers and tap/hold keys without ever opening a JSON file.** KāKLayers is my attempt at that: native, fast, and designed so you can see your whole keyboard at once.
+
+KāKLayers builds the configuration; **Karabiner-Elements still does the remapping**, so you need it installed. It does not replace Karabiner's own app.
 
 **About the name:** KāKLayers stands for **K**arabiner **K**eyboard **Layers**, and the ā is a nod to the "a" in Karabiner. The 🍰 is a pun on stacking layers.
 
