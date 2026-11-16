@@ -85,11 +85,27 @@ final class AppState: ObservableObject {
 
     private let persist: Bool
 
+    /// Where the project is saved. nil = the app's own folder. Set by Save project as… / Open project….
+    @Published var projectFile: URL? = nil { didSet { if persist { Self.remember(projectFile, key: "projectFile") } } }
+    /// A custom karabiner.json to apply to. nil = ~/.config/karabiner/karabiner.json.
+    @Published var configFile: URL? = nil { didSet { if persist { Self.remember(configFile, key: "configFile") } } }
+    var writer: ConfigWriter { ConfigWriter(configFile: configFile) }
+
+    static func remember(_ url: URL?, key: String) {
+        if let url { UserDefaults.standard.set(url.path, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+    }
+    static func remembered(_ key: String) -> URL? {
+        UserDefaults.standard.string(forKey: key).map { URL(fileURLWithPath: $0) }
+    }
+
     init(project initial: Project? = nil, persist: Bool = true) {
         self.persist = persist
+        let savedProject = persist ? Self.remembered("projectFile").flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } : nil
+        self.projectFile = savedProject
+        self.configFile = persist ? Self.remembered("configFile") : nil
         if let initial {
             project = initial
-        } else if persist, let d = try? Data(contentsOf: Self.saveURL), let p = try? JSONDecoder().decode(Project.self, from: d) {
+        } else if persist, let d = try? Data(contentsOf: savedProject ?? Self.saveURL), let p = try? JSONDecoder().decode(Project.self, from: d) {
             project = Self.isLegacyStarter(p) ? Self.starter() : p
         } else {
             project = Self.starter()
@@ -133,7 +149,10 @@ final class AppState: ObservableObject {
     func saveNow() {
         guard persist else { return }
         pendingSave?.cancel(); pendingSave = nil
-        if let d = try? JSONEncoder().encode(project) { try? d.write(to: Self.saveURL, options: .atomic) }
+        let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let d = try? enc.encode(project) else { return }
+        do { try d.write(to: projectFile ?? Self.saveURL, options: .atomic) }
+        catch { status = "Couldn't save the project: \(error.localizedDescription)" }
     }
 
     // MARK: Selection and quick actions
@@ -243,15 +262,64 @@ final class AppState: ObservableObject {
     // MARK: Apply
     func apply() {
         do {
-            let r = try ConfigWriter().apply(project)
+            let r = try writer.apply(project)
             status = "Applied \(r.ruleCount) rules to \(r.configPath)" + (r.backupPath != nil ? " (backup saved)" : "")
         } catch { status = "Apply failed: \(error.localizedDescription)" }
     }
     func restore() {
         do {
-            status = try ConfigWriter().restoreLatestBackup().map { "Restored \(($0 as NSString).lastPathComponent)" } ?? "No backup found"
+            status = try writer.restoreLatestBackup().map { "Restored \(($0 as NSString).lastPathComponent)" } ?? "No backup found"
         } catch { status = "Restore failed: \(error.localizedDescription)" }
     }
+    // MARK: Files: custom config, export, project files
+    private func savePanel(name: String, message: String) -> URL? {
+        let p = NSSavePanel()
+        p.allowedContentTypes = [.json]; p.nameFieldStringValue = name; p.message = message; p.canCreateDirectories = true
+        return p.runModal() == .OK ? p.url : nil
+    }
+    private func openPanel(message: String) -> URL? {
+        let p = NSOpenPanel()
+        p.allowedContentTypes = [.json]; p.message = message
+        return p.runModal() == .OK ? p.url : nil
+    }
+
+    /// Write the compiled rules as a standalone Karabiner file (import it via Complex Modifications → Add predefined rule → Import from file).
+    func exportKarabinerJSON() {
+        guard let url = savePanel(name: "kaklayers-rules.json", message: "Save the rules as a Karabiner complex-modifications file.") else { return }
+        do { try exportJSON().write(to: url, atomically: true, encoding: .utf8); status = "Exported \(KarabinerCompiler.rules(for: project).count) rules to \(url.path)" }
+        catch { status = "Export failed: \(error.localizedDescription)" }
+    }
+    /// One-off: merge into any karabiner.json (a backup is saved next to it).
+    func applyToAnotherFile() {
+        guard let url = savePanel(name: "karabiner.json", message: "Choose a karabiner.json to merge your rules into. Its other rules are kept and a backup is saved next to it.") else { return }
+        do {
+            let r = try ConfigWriter(configFile: url).apply(project)
+            status = "Applied \(r.ruleCount) rules to \(r.configPath)" + (r.backupPath != nil ? " (backup saved)" : "")
+        } catch { status = "Apply failed: \(error.localizedDescription)" }
+    }
+    func chooseConfigLocation() {
+        guard let url = savePanel(name: "karabiner.json", message: "Choose the karabiner.json that “Apply to Karabiner” should use.") else { return }
+        configFile = url; status = "Apply will now write to \(url.path)"
+    }
+    func useDefaultConfig() { configFile = nil; status = "Apply will write to ~/.config/karabiner/karabiner.json" }
+
+    func saveProjectAs() {
+        let safe = project.name.replacingOccurrences(of: "/", with: "-")
+        guard let url = savePanel(name: "\(safe).kaklayers.json", message: "Save this project to a file. Changes keep saving to it until you switch back.") else { return }
+        projectFile = url; saveNow()
+        if projectFile != nil { status = "Project saved to \(url.path)" }
+    }
+    func openProject() {
+        guard let url = openPanel(message: "Open a KāKLayers project file."),
+              let data = try? Data(contentsOf: url) else { return }
+        do {
+            let p = try JSONDecoder().decode(Project.self, from: data)
+            project = p; activeLayer = nil; selectedKey = nil; projectFile = url
+            status = "Opened \(url.lastPathComponent)"
+        } catch { status = "That file isn't a KāKLayers project: \(error.localizedDescription)" }
+    }
+    func useDefaultProject() { projectFile = nil; saveNow(); status = "Project now saves in the app's own folder." }
+
     func exportJSON() -> String { (try? KarabinerCompiler.jsonString(KarabinerCompiler.compile(project))) ?? "" }
 
     // MARK: Recording

@@ -102,6 +102,27 @@ struct CompilerTests {
 }
 
 
+func testCustomConfigFileAndProjectRoundTrip() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kak-custom-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let file = dir.appendingPathComponent("dotfiles/karabiner.json")            // does not exist yet
+    let p = Project(layers: [Layer(id: "x", name: "X", colorHex: "#4F8EF7", triggerKeys: ["caps_lock"])],
+                    bindings: [KeyBinding(layerId: "x", fromKeys: ["h"], onPress: [.key(KeyCombo(key: "left_arrow"))])])
+    let w = ConfigWriter(dir: dir, configFile: file)
+    let first = try w.apply(p)
+    expect(first.backupPath == nil && first.exportPath == nil && first.configPath == file.path)
+    expect(FileManager.default.fileExists(atPath: file.path))
+    expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("assets").path))   // no assets copy for custom files
+    let second = try w.apply(p)
+    expect(second.backupPath?.hasPrefix(file.deletingLastPathComponent().path) == true)         // backup sits beside the file
+    let out = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as! JSON
+    let rules = (((out["profiles"] as! [JSON])[0]["complex_modifications"] as! JSON)["rules"] as! [JSON])
+    expect(rules.count == KarabinerCompiler.rules(for: p).count)
+    // project files survive an encode/decode round trip
+    let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+    expect(try JSONDecoder().decode(Project.self, from: enc.encode(p)) == p)
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -310,7 +331,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

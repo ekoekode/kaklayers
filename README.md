@@ -23,6 +23,7 @@ Karabiner-Elements is wonderful, and its rule format is powerful. The configurat
 - **Simulate before you apply.** Hold virtual layers and modifiers to see which action a key would run.
 - **Safe by design.** Your `karabiner.json` is backed up before every change, and only the rules this app created are ever replaced. Everything else you have stays put.
 - **The whole Mac keyboard.** F13–F19, plus a switch that redraws the top row as the media keys (brightness, Mission Control, Launchpad, backlight, playback, volume) it sends without `fn`.
+- **Your files, your places.** Export the rules as a standalone Karabiner JSON, apply to any `karabiner.json` (a dotfiles repo, a second profile file), or point "Apply" at a custom location. Save and open named project files so you can keep one layout per keyboard.
 - **Conflict checks.** It warns about duplicate triggers, shadowed bindings and actions that output nothing.
 
 | Hyper layer · light | Numpad layer · light |

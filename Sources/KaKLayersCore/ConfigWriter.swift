@@ -3,7 +3,7 @@ import Foundation
 public struct ApplyResult {
     public var configPath: String
     public var backupPath: String?
-    public var exportPath: String
+    public var exportPath: String?      // nil when applying to a custom file
     public var ruleCount: Int
 }
 
@@ -11,20 +11,24 @@ public struct ApplyResult {
 /// anything we didn't create (rules are identified by `KarabinerCompiler.rulePrefix`).
 public struct ConfigWriter {
     public let dir: URL
+    /// A karabiner.json somewhere else (a dotfiles repo, a second profile file). nil = `dir/karabiner.json`.
+    public let configFile: URL?
 
     public static var defaultDir: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/karabiner")
     }
 
-    public init(dir: URL = ConfigWriter.defaultDir) { self.dir = dir }
+    public init(dir: URL = ConfigWriter.defaultDir, configFile: URL? = nil) { self.dir = dir; self.configFile = configFile }
 
-    var configURL: URL { dir.appendingPathComponent("karabiner.json") }
-    var backupDir: URL { dir.appendingPathComponent("layers-backups") }
+    var configURL: URL { configFile ?? dir.appendingPathComponent("karabiner.json") }
+    public var configPath: String { configURL.path }
+    /// Backups live next to whichever file is being edited.
+    var backupDir: URL { configURL.deletingLastPathComponent().appendingPathComponent("layers-backups") }
     var exportURL: URL { dir.appendingPathComponent("assets/complex_modifications/kaklayers.json") }
 
     public func apply(_ project: Project) throws -> ApplyResult {
         let fm = FileManager.default
-        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        try fm.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 
         var root: JSON
         var backup: String?
@@ -59,9 +63,13 @@ public struct ConfigWriter {
         root["profiles"] = profiles
 
         try write(root, to: configURL)
-        try fm.createDirectory(at: exportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try write(KarabinerCompiler.compile(project), to: exportURL)
-        return ApplyResult(configPath: configURL.path, backupPath: backup, exportPath: exportURL.path, ruleCount: ours.count)
+        var exported: String?
+        if configFile == nil {      // the Karabiner assets copy only makes sense for the real config folder
+            try fm.createDirectory(at: exportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try write(KarabinerCompiler.compile(project), to: exportURL)
+            exported = exportURL.path
+        }
+        return ApplyResult(configPath: configURL.path, backupPath: backup, exportPath: exported, ruleCount: ours.count)
     }
 
     /// Restore the most recent backup made by `apply`.

@@ -58,6 +58,18 @@ struct ToolbarView: View {
             checksButton
             Menu {
                 Button("View generated JSON") { app.showJSON = true }
+                Button("Export Karabiner JSON…") { app.exportKarabinerJSON() }
+                Divider()
+                Button("Open project…") { app.openProject() }
+                Button("Save project as…") { app.saveProjectAs() }
+                if app.projectFile != nil { Button("Use app's own project folder") { app.useDefaultProject() } }
+                Text("Project: " + (app.projectFile?.lastPathComponent ?? "app folder"))
+                Divider()
+                Button("Apply to another file…") { app.applyToAnotherFile() }
+                Button("Set Karabiner config location…") { app.chooseConfigLocation() }
+                if app.configFile != nil { Button("Use ~/.config/karabiner") { app.useDefaultConfig() } }
+                Text("Config: " + (app.configFile?.path ?? "~/.config/karabiner/karabiner.json"))
+                Divider()
                 Button("Restore last backup") { app.restore() }
             } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize()
             Button { app.apply() } label: { Label("Apply to Karabiner", systemImage: "checkmark.circle.fill") }
