@@ -14,7 +14,7 @@ func render(_ px: Int) -> Data {
     let top = blue ? NSColor(srgbRed: 0.20, green: 0.76, blue: 1.00, alpha: 1) : pink ? NSColor(srgbRed: 1.00, green: 0.78, blue: 0.86, alpha: 1) : NSColor(srgbRed: 1.00, green: 0.86, blue: 0.30, alpha: 1)
     let bottom = blue ? NSColor(srgbRed: 0.08, green: 0.44, blue: 0.96, alpha: 1) : pink ? NSColor(srgbRed: 1.00, green: 0.55, blue: 0.72, alpha: 1) : NSColor(srgbRed: 1.00, green: 0.76, blue: 0.10, alpha: 1)
     NSGradient(starting: top, ending: bottom)!.draw(in: shape, angle: -90)
-    let size = CGFloat(px) * 0.54
+    let size = CGFloat(px) * 0.70
     let font = NSFont(name: "Apple Color Emoji", size: size) ?? NSFont.systemFont(ofSize: size)
     let s = NSAttributedString(string: "🍰", attributes: [.font: font])
     let b = s.size()
