@@ -2,8 +2,10 @@
 # Builds dist/KaKLayers.app from the release binary (Command Line Tools only, ad-hoc signed).
 set -e
 cd "$(dirname "$0")/.."
-swift build -c release 2>&1 | grep -E "error|Build complete"
-BIN="$(swift build -c release --show-bin-path 2>/dev/null | tail -1)/KaKLayers"
+# Set KAK_BUILD_DIR to build somewhere other than ./.build (for example a temp folder on a shared drive).
+SCRATCH=(--scratch-path "${KAK_BUILD_DIR:-.build}")
+swift build -c release "${SCRATCH[@]}" 2>&1 | grep -E "error|Build complete"
+BIN="$(swift build -c release "${SCRATCH[@]}" --show-bin-path 2>/dev/null | tail -1)/KaKLayers"
 APP=dist/KaKLayers.app
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/KaKLayers"
