@@ -14,7 +14,7 @@ Karabiner-Elements is wonderful, and its rule format is powerful. The configurat
 
 KāKLayers builds the configuration; **Karabiner-Elements still does the remapping**, so you need it installed. It does not replace Karabiner's own app.
 
-**About the name:** KāKLayers stands for **K**arabiner **K**eyboard **Layers**, and the ā is a nod to the "a" in Karabiner. The 🍰 is a pun on stacking layers.
+**About the name:** KāKLayers = **K**arabiner **K**eyboard **Layers**.
 
 ## What you can do
 
