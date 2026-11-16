@@ -12,6 +12,8 @@ Build super keys, keyboard layers and advanced key workflows by clicking keys, n
 
 Karabiner-Elements is wonderful, and its rule format is powerful. The configurators around it are each good at something, but none of them gave me the thing I wanted: **a quick, visual way to build layers and tap/hold keys without ever opening a JSON file.** KāKLayers is my attempt at that: native, fast, and designed so you can see your whole keyboard at once.
 
+**About the name:** KāKLayers stands for **K**arabiner **K**eyboard **Layers**, and the ā is a nod to the "a" in Karabiner. The 🍰 is a pun on stacking layers.
+
 ## What you can do
 
 - **Super keys and layers.** Tap `~` and you still get `~`; hold it and the whole keyboard becomes a layer. Triggers can be one key or a combo such as ⌘⌃⌥⇧ (a "hyper" key).
