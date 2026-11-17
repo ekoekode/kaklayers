@@ -29,6 +29,7 @@ struct LayerSettings: View {
             Text("Hold several keys at once (for example ⌘⌃⇧) for a hyper-key layer.").font(.system(size: 11)).foregroundStyle(.secondary)
             if layer.mode == .momentary {
                 Text("When tapped alone, output").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                Text("Leave it empty and a tap sends the key itself, with Shift and other modifiers still applied.").font(.system(size: 11)).foregroundStyle(.secondary)
                 ActionRail(actions: SwiftUI.Binding(get: { layer.tapAction }, set: { v in app.updateLayer(layer.id) { $0.tapAction = v } }), listId: "layertap-\(layer.id)")
             }
             Divider()

@@ -72,7 +72,7 @@ extension CapRole {
     var help: String {
         switch self {
         case .press: "Runs the moment the key goes down."
-        case .tap: "Runs when the key is pressed and released on its own. A super key keeps its normal character here."
+        case .tap: "Runs when the key is pressed and released on its own. A hold-only key still types itself when tapped unless you set something here."
         case .hold: "Runs once the key has been held past the hold threshold."
         case .doubleTap: "Runs when the key is pressed twice quickly."
         case .release: "Runs when the key comes back up."

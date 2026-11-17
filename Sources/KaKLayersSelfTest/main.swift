@@ -147,6 +147,54 @@ func testCopyPasteKeySettings() {
     expect(p.keySettings(layer: nil, key: "l").count == 2)
 }
 
+func testTapKeepsOriginalFunction() {
+    func manips(_ p: Project, layer: String? = nil) -> [JSON] {
+        KarabinerCompiler.rules(for: p).flatMap { ($0["manipulators"] as? [JSON]) ?? [] }
+    }
+    func toAlone(_ m: JSON) -> [JSON]? { m["to_if_alone"] as? [JSON] }
+
+    // A momentary layer on ' with no tap action: tapping it types ' (and Shift stays held, so Shift+' types the shifted character).
+    let quote = Layer(id: "q", name: "Quote", colorHex: "#4F8EF7", triggerKeys: ["quote"])
+    let trig = manips(Project(layers: [quote])).last!
+    expect(toAlone(trig)?.first?["key_code"] as? String == "quote")
+    expect(((trig["from"] as! JSON)["modifiers"] as! JSON)["optional"] as? [String] == ["any"])      // Shift+' still triggers the rule
+    expect((trig["parameters"] as? JSON)?["basic.to_if_alone_timeout_milliseconds"] as? Int == 200)
+
+    // An explicit tap action wins over the default.
+    var custom = quote; custom.tapAction = [.key(KeyCombo(key: "escape"))]
+    expect(toAlone(manips(Project(layers: [custom])).last!)?.first?["key_code"] as? String == "escape")
+    // Modifier triggers and toggle layers get no pass-through.
+    let mod = Layer(id: "m", name: "M", colorHex: "#E5484D", triggerKeys: ["right_option"])
+    expect(toAlone(manips(Project(layers: [mod])).last!) == nil)
+    var tog = quote; tog.mode = .toggle
+    expect(manips(Project(layers: [tog])).allSatisfy { toAlone($0) == nil })
+    // Hyper (several keys) gets none either.
+    let hyper = Layer(id: "h", name: "H", colorHex: "#E5484D", triggerKeys: ["left_command", "left_control"])
+    expect(toAlone(manips(Project(layers: [hyper])).last!) == nil)
+
+    // Hold-only binding: a tap sends the key itself, with the binding's required modifiers.
+    let holdOnly = KeyBinding(fromKeys: ["a"], onHold: [.key(KeyCombo(key: "b"))])
+    let h = manips(Project(bindings: [holdOnly]))[0]
+    expect(toAlone(h)?.first?["key_code"] as? String == "a" && h["to"] == nil && h["to_if_held_down"] != nil)
+    let holdMod = KeyBinding(fromKeys: ["a"], fromModifiers: ["command"], onHold: [.key(KeyCombo(key: "b"))])
+    expect((toAlone(manips(Project(bindings: [holdMod]))[0])?.first?["modifiers"] as? [String]) == ["command"])
+    // Tap defined, or press defined: nothing is added.
+    let tapSet = KeyBinding(fromKeys: ["a"], onTap: [.key(KeyCombo(key: "c"))], onHold: [.key(KeyCombo(key: "b"))])
+    expect(toAlone(manips(Project(bindings: [tapSet]))[0])?.first?["key_code"] as? String == "c")
+    let pressSet = KeyBinding(fromKeys: ["a"], onPress: [.key(KeyCombo(key: "x"))], onHold: [.key(KeyCombo(key: "b"))])
+    expect(toAlone(manips(Project(bindings: [pressSet]))[0]) == nil)
+    // Release-only: the press passes through.
+    let rel = manips(Project(bindings: [KeyBinding(fromKeys: ["a"], onRelease: [.shell("true")])]))[0]
+    expect((rel["to"] as? [JSON])?.first?["key_code"] as? String == "a" && rel["to_after_key_up"] != nil)
+    // Double-tap only: a single tap sends the key after the window.
+    let dbl = manips(Project(bindings: [KeyBinding(fromKeys: ["a"], onDoubleTap: [.key(KeyCombo(key: "z"))])]))
+    let invoked = (((dbl.last!["to_delayed_action"] as! JSON)["to_if_invoked"]) as! [JSON])
+    expect(invoked.contains { $0["key_code"] as? String == "a" })
+    // Chords have no single original key.
+    let chord = KeyBinding(fromKeys: ["a", "s"], onHold: [.key(KeyCombo(key: "b"))])
+    expect(toAlone(manips(Project(bindings: [chord]))[0]) == nil)
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -355,7 +403,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

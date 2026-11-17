@@ -51,6 +51,19 @@ public enum KarabinerCompiler {
 
     struct Context { let project: Project }
 
+    // MARK: Original function
+
+    /// What a key does with no rules at all: itself, with the modifiers the binding requires. Empty for chords.
+    /// Anything the user has not defined falls back to this, so a tap never swallows the key.
+    static func original(keys: [String], modifiers: [String]) -> [Action] {
+        guard keys.count == 1, let k = keys.first else { return [] }
+        if Keycodes.codeField(k) != "key_code" { return [.consumer(k)] }
+        return [.key(KeyCombo(key: k, modifiers: modifiers))]
+    }
+
+    /// Modifier keys have no character to give back when tapped, so layers on them stay silent.
+    static func isModifier(_ key: String) -> Bool { Keycodes.genericModifier(key) != nil }
+
     // MARK: Layer triggers
 
     static func triggerOn(_ layer: Layer) -> JSON {
@@ -63,8 +76,13 @@ public enum KarabinerCompiler {
             m["to"] = [["set_variable": ["name": layer.variableName, "value": 1]]]
             m["conditions"] = [varCond(layer.variableName, 0, equals: true)]
         }
-        if !layer.tapAction.isEmpty && layer.mode == .momentary {
-            m["to_if_alone"] = events(layer.tapAction)
+        // Tapped without using the layer: the user's tap action, or else the key itself (Shift etc. still apply).
+        var tap = layer.tapAction
+        if tap.isEmpty, layer.triggerKeys.count == 1, let k = layer.triggerKeys.first, !isModifier(k) {
+            tap = original(keys: layer.triggerKeys, modifiers: [])
+        }
+        if !tap.isEmpty && layer.mode == .momentary {
+            m["to_if_alone"] = events(tap)
             params["basic.to_if_alone_timeout_milliseconds"] = layer.tapTimeoutMs
         }
         if layer.triggerKeys.count > 1 { params["basic.simultaneous_threshold_milliseconds"] = 100 }
@@ -109,6 +127,10 @@ public enum KarabinerCompiler {
             return m
         }
 
+        // Whatever is not defined keeps the key's own function.
+        let original = Self.original(keys: b.fromKeys, modifiers: b.fromModifiers)
+        let tapFallback = (b.onPress.isEmpty && b.onTap.isEmpty) ? original : []
+
         // Double tap: a "pending tap" variable armed by the first press.
         if !b.onDoubleTap.isEmpty {
             let v = "dt_" + b.id.uuidString.prefix(8).lowercased()
@@ -122,7 +144,7 @@ public enum KarabinerCompiler {
 
             var first = params
             first["basic.to_delayed_action_delay_milliseconds"] = b.doubleTapMs
-            let single = events(b.onTap)
+            let single = events(b.onTap.isEmpty ? tapFallback : b.onTap)
             let firstM = manipulator(
                 from: fromDict,
                 to: [setVar(v, 1)] + events(b.onPress),
@@ -135,16 +157,19 @@ public enum KarabinerCompiler {
         }
 
         var extra: JSON = [:]
-        if !b.onTap.isEmpty {
-            extra["to_if_alone"] = events(b.onTap)
+        // A hold-only key still types itself when tapped; a release-only key passes the press through.
+        let tap = !b.onTap.isEmpty ? b.onTap : (!b.onHold.isEmpty ? tapFallback : [])
+        if !tap.isEmpty {
+            extra["to_if_alone"] = events(tap)
             params["basic.to_if_alone_timeout_milliseconds"] = b.tapTimeoutMs
         }
+        let releaseOnly = b.onPress.isEmpty && b.onTap.isEmpty && b.onHold.isEmpty && !b.onRelease.isEmpty
         if !b.onHold.isEmpty {
             extra["to_if_held_down"] = events(b.onHold)
             params["basic.to_if_held_down_threshold_milliseconds"] = b.holdThresholdMs
         }
         if !b.onRelease.isEmpty { extra["to_after_key_up"] = events(b.onRelease) }
-        return [manipulator(from: fromDict, to: events(b.onPress), extra: extra, conds: conditions, p: params)]
+        return [manipulator(from: fromDict, to: events(releaseOnly ? original : b.onPress), extra: extra, conds: conditions, p: params)]
     }
 
     // MARK: Pieces

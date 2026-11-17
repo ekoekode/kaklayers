@@ -77,8 +77,8 @@ public enum ConflictChecker {
             for b in p.bindings where b.layerId == nil && b.enabled && l.triggerKeys.count == 1 && b.fromKeys == l.triggerKeys && !b.isEmpty {
                 out.append(Problem(severity: .warning, message: "Base binding on \(Keycodes.label(b.fromKeys[0])) is shadowed by layer “\(l.name)” using it as a trigger."))
             }
-            if l.mode == .momentary, l.tapAction.isEmpty, l.triggerKeys.count == 1 {
-                out.append(Problem(severity: .info, message: "“\(l.name)”: tapping \(Keycodes.label(l.triggerKeys[0])) outputs nothing. Add a tap output to keep its normal behavior."))
+            if l.mode == .momentary, l.tapAction.isEmpty, l.triggerKeys.count == 1, KarabinerCompiler.isModifier(l.triggerKeys[0]) {
+                out.append(Problem(severity: .info, message: "“\(l.name)”: tapping \(Keycodes.label(l.triggerKeys[0])) outputs nothing, because it is a modifier. Add a tap output if you want one."))
             }
         }
         var dup: Set<String> = []
