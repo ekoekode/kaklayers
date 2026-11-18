@@ -132,28 +132,32 @@ struct KeyboardDeck: View {
     }
 }
 
-/// The body of the mouse: a plate shaped like one, behind the buttons, with a caption on the palm.
+/// The mouse: a rounded group box (labelled at its top left) around a mouse-shaped body, behind the buttons.
 struct MouseBody: View {
     let unit: CGFloat
     var body: some View {
         let pad = CapShape.mouseInset
+        // Group box: the width of the block (x 19 to 23), starting just under the F-row.
+        let gx0 = (19.0 * unit).rounded(), gx1 = (23.0 * unit).rounded() - Theme.gap
+        let gy0 = (1.05 * unit).rounded(), gy1 = (6.5 * unit).rounded() - Theme.gap
+        // Mouse body: top and bottom share one radius, concentric with the buttons' outer corners.
         let x0 = (19.25 * unit).rounded() - pad, x1 = (22.75 * unit).rounded() - Theme.gap + pad
-        let y0 = (1.5 * unit).rounded() - pad, y1 = (6.5 * unit).rounded() - Theme.gap + pad
-        // The body's top corners are concentric with the buttons' outer corners (the buttons use this radius minus the inset).
-        let top = CapShape.mouseBodyRadius(unit: unit), bottom = top      // same roundness top and bottom
-        let shape = CornerShape(tl: top, tr: top, br: bottom, bl: bottom)
+        let y0 = (1.5 * unit).rounded() - pad, y1 = (6.5 * unit).rounded() - Theme.gap - 16
+        let r = CapShape.mouseBodyRadius(unit: unit)
+        let body = CornerShape(tl: r, tr: r, br: r, bl: r)
         ZStack(alignment: .topLeading) {
-            shape.fill(Theme.plate)
-                .overlay(shape.stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
+            RoundedRectangle(cornerRadius: Theme.cornerKey + 4).fill(Theme.plate)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerKey + 4).stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
+                .frame(width: gx1 - gx0, height: gy1 - gy0).offset(x: gx0, y: gy0)
+            body.fill(Theme.plate)
+                .overlay(body.stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
                 .frame(width: x1 - x0, height: y1 - y0).offset(x: x0, y: y0)
-            // The mouse icon with a quiet name beneath it, centered in the free part of the palm (right of the thumb keys).
-            VStack(spacing: 5) {
-                Image(systemName: "computermouse").font(.system(size: 17, weight: .regular))
+            HStack(spacing: 5) {
+                Image(systemName: "computermouse").font(.system(size: 10, weight: .medium))
                 Text("Mouse").font(.system(size: 10, weight: .medium))
             }
-            .foregroundStyle(.secondary.opacity(0.75))
-            .frame(width: (2.4 * unit).rounded(), height: (1.6 * unit).rounded())
-            .offset(x: (20.3 * unit).rounded(), y: (4.55 * unit).rounded())
+            .foregroundStyle(.secondary)
+            .offset(x: gx0 + 9, y: gy0 + 4)
         }
         .allowsHitTesting(false)
     }
