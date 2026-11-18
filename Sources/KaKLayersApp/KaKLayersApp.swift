@@ -13,6 +13,7 @@ struct KaKLayersApp: App {
     @StateObject private var state = CommandLine.arguments.contains("--demo")
         ? { let a = AppState(project: Snapshot.demoProject(), persist: false); 
             func arg(_ n: String) -> String? { CommandLine.arguments.firstIndex(of: n).flatMap { $0 + 1 < CommandLine.arguments.count ? CommandLine.arguments[$0 + 1] : nil } }
+            if let n = arg("--layers").flatMap(Int.init) { a.project = Snapshot.manyLayers(n, per: 6) }
             let l = arg("--layer"); a.activeLayer = l == "base" ? nil : (l ?? "nav"); a.selectedKey = arg("--key") ?? "h"
             if let m = arg("--mods") { a.variantMods = m.split(separator: ",").map(String.init) }
             if CommandLine.arguments.contains("--media") { a.mediaRow = true }
@@ -22,6 +23,9 @@ struct KaKLayersApp: App {
     init() {
         if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count {
             Snapshot.run(to: CommandLine.arguments[i + 1]); exit(0)
+        }
+        if let i = CommandLine.arguments.firstIndex(of: "--bench-layers"), i + 1 < CommandLine.arguments.count, let n = Int(CommandLine.arguments[i + 1]) {
+            Snapshot.bench(layers: n); exit(0)
         }
         if CommandLine.arguments.contains("--bench") {
             let st = AppState(project: Snapshot.stressProject(), persist: false); st.activeLayer = "nav"; st.showAllLayers = true
@@ -43,7 +47,7 @@ struct KaKLayersApp: App {
     }
     var body: some Scene {
         WindowGroup("🍰 KāKLayers") {
-            ContentView().environmentObject(state).frame(minWidth: CGFloat(Metrics.minWindowWidth), minHeight: 780)
+            ContentView().environmentObject(state).frame(minWidth: CGFloat(Metrics.minWindowWidth))
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1440, height: 900)

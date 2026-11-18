@@ -13,6 +13,8 @@ enum Theme {
     static func unit(forWidth w: CGFloat) -> CGFloat {
         min(CGFloat(Metrics.maxKeyUnit), max(CGFloat(Metrics.minKeyUnit), floor((w - 2 * gutter) / CGFloat(Keycodes.totalWidth))))
     }
+    /// Smallest window height with a single row of layer chips.
+    static let minWindowHeight: CGFloat = 780
     static func deckWidth(_ u: CGFloat) -> CGFloat { (CGFloat(Keycodes.totalWidth) * u).rounded() }
     static func deckHeight(_ u: CGFloat) -> CGFloat { (CGFloat(Keycodes.totalHeight) * u).rounded() }
 
@@ -51,26 +53,36 @@ struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        arrange(width: proposal.width ?? .infinity, subviews: subviews).size
+    /// Child sizes are measured once per update (not on every layout call), and each line-breaking result is remembered per width.
+    struct Cache {
+        var sizes: [CGSize]
+        var memo: [CGFloat: (size: CGSize, frames: [CGRect])] = [:]
     }
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let r = arrange(width: bounds.width, subviews: subviews)
+    func makeCache(subviews: Subviews) -> Cache { Cache(sizes: subviews.map { $0.sizeThatFits(.unspecified) }) }
+    func updateCache(_ cache: inout Cache, subviews: Subviews) { cache = makeCache(subviews: subviews) }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        arrange(width: proposal.width ?? .infinity, cache: &cache).size
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let r = arrange(width: bounds.width, cache: &cache)
         for (i, f) in r.frames.enumerated() {
             subviews[i].place(at: CGPoint(x: bounds.minX + f.minX, y: bounds.minY + f.minY), proposal: ProposedViewSize(f.size))
         }
     }
-    private func arrange(width: CGFloat, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+    private func arrange(width: CGFloat, cache: inout Cache) -> (size: CGSize, frames: [CGRect]) {
+        if let hit = cache.memo[width] { return hit }
         var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, maxW: CGFloat = 0
         var frames: [CGRect] = []
-        for s in subviews {
-            var sz = s.sizeThatFits(.unspecified)
+        for var sz in cache.sizes {
             if sz.width > width { sz.width = width }
             if x > 0 && x + sz.width > width { x = 0; y += rowH + lineSpacing; rowH = 0 }
             frames.append(CGRect(origin: CGPoint(x: x, y: y), size: sz))
             x += sz.width + spacing; rowH = max(rowH, sz.height); maxW = max(maxW, x - spacing)
         }
-        return (CGSize(width: maxW, height: y + rowH), frames)
+        let result = (size: CGSize(width: maxW, height: y + rowH), frames: frames)
+        cache.memo[width] = result
+        return result
     }
 }
 

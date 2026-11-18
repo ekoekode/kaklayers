@@ -55,6 +55,41 @@ enum Snapshot {
         return Project(name: "Stress", layers: [nav, hyper, vim, apps, num], bindings: bs)
     }
 
+    /// `n` layers with `per` bindings each, on a spread of letter keys.
+    static func manyLayers(_ n: Int, per: Int = 25) -> Project {
+        let keys = ["q","w","e","r","t","y","u","i","o","p","a","s","d","f","g","h","j","k","l","z","x","c","v","b","n","m","1","2","3","4","5"]
+        var layers: [Layer] = [], bindings: [KeyBinding] = []
+        for i in 0..<n {
+            let id = "l\(i)"
+            layers.append(Layer(id: id, name: "Layer \(i + 1)", colorHex: layerPalette[i % layerPalette.count], triggerKeys: [keys[i % keys.count]]))
+            for k in keys.prefix(per) {
+                bindings.append(KeyBinding(layerId: id, fromKeys: [k], onPress: [.key(KeyCombo(key: "left_arrow")), .delay(40)], onHold: [.shell("echo hi")]))
+            }
+        }
+        return Project(name: "Many", layers: layers, bindings: bindings)
+    }
+
+    /// Times the pieces that scale with layer count.
+    static func bench(layers n: Int) {
+        func ms(_ reps: Int, _ f: () -> Void) -> String {
+            let t = CFAbsoluteTimeGetCurrent(); for _ in 0..<reps { f() }
+            return String(format: "%.2f ms", (CFAbsoluteTimeGetCurrent() - t) / Double(reps) * 1000)
+        }
+        for count in [3, n] {
+            let st = AppState(project: manyLayers(count), persist: false); st.activeLayer = "l0"
+            print("== \(count) layers, \(st.project.bindings.count) bindings")
+            print("capModels:           ", ms(100) { _ = st.capModels(unit: 62) })
+            st.showAllLayers = true
+            print("capModels (all on):  ", ms(100) { _ = st.capModels(unit: 62) })
+            print("conflict check:      ", ms(100) { _ = ConflictChecker.check(st.project) })
+            print("compile:             ", ms(20) { _ = KarabinerCompiler.rules(for: st.project) })
+            for (label, w) in [("window 1440", CGFloat(1440)), ("window 1240", 1240)] {
+                let view = ContentView().environmentObject(st).frame(width: w, height: 860).environment(\.snapshot, true)
+                print("full render \(label):", ms(3) { let r = ImageRenderer(content: view); r.scale = 1; _ = r.nsImage })
+            }
+        }
+    }
+
     static func run(to dir: String) {
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let cases: [(String, CGFloat, CGFloat, Keycodes.LayoutKind, String?, String, Bool)] = [

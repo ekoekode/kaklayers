@@ -29,6 +29,7 @@ struct ContentView: View {
             }
             .background(Theme.window)
         }
+        .frame(minHeight: Theme.minWindowHeight + app.layerBarExtra)
         .onAppear { app.installTypeToSelect() }
         .sheet(isPresented: $app.showJSON) {
             VStack(alignment: .leading) {
@@ -104,8 +105,9 @@ struct ToolbarView: View {
 // MARK: Layer bar
 
 /// Layers (not Base) can be dragged onto each other to re-order; keys carry a different payload prefix.
+/// Holds the app without observing it, so it is not re-evaluated on every unrelated change.
 struct ReorderModifier: ViewModifier {
-    @EnvironmentObject var app: AppState
+    let app: AppState
     @Environment(\.snapshot) var snapshot
     let id: String?
     func body(content: Content) -> some View {
@@ -128,12 +130,90 @@ struct ReorderModifier: ViewModifier {
     }
 }
 
+/// Reads the layer live, so the popover follows edits made inside it.
+struct LayerSettingsHost: View {
+    @EnvironmentObject var app: AppState
+    let id: String
+    var body: some View {
+        if let layer = app.project.layer(id) { LayerSettings(layer: layer).frame(width: 320).padding(14) }
+    }
+}
+
+/// One layer chip. Plain values plus the app (not observed), so a chip only redraws when its own look changes.
+struct LayerChip: View, Equatable {
+    let id: String?
+    let name: String
+    let hex: String?
+    let shape: String
+    let trigger: String
+    let active: Bool
+    let held: Bool
+    let simulating: Bool
+    let selected: Bool
+    let popoverOpen: Bool
+    let app: AppState
+
+    static func == (a: LayerChip, b: LayerChip) -> Bool {
+        a.id == b.id && a.name == b.name && a.hex == b.hex && a.shape == b.shape && a.trigger == b.trigger && a.active == b.active
+            && a.held == b.held && a.simulating == b.simulating && a.selected == b.selected && a.popoverOpen == b.popoverOpen
+    }
+
+    var body: some View {
+        let color = hex.map(Color.init(hex:)) ?? Color.secondary
+        let showHeld = simulating && id != nil
+        let on = showHeld && held
+        return HStack(spacing: 6) {
+            Image(systemName: shape).font(.system(size: 10)).foregroundStyle(on ? Color.white : color)
+            Text(name).font(.system(size: 12, weight: .medium)).fixedSize().foregroundStyle(on ? Color.white : Color.primary)
+            if !trigger.isEmpty {
+                Text(trigger).font(.system(size: 11, weight: .semibold)).foregroundStyle(on ? Color.white.opacity(0.85) : Color.secondary).fixedSize()
+            }
+            if id != nil && !simulating {
+                Button {
+                    app.activeLayer = id
+                    app.layerPopover = (app.layerPopover == id ? nil : id)
+                } label: { Image(systemName: "slider.horizontal.3").font(.system(size: 11)).frame(width: 18, height: 18).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).help("Layer settings")
+            }
+        }
+        .padding(.horizontal, 11).frame(height: 28)
+        .background(Capsule().fill(on ? color : (selected ? Color.red.opacity(0.12) : (active && !simulating ? color.opacity(0.20) : Color.primary.opacity(0.06)))))
+        .overlay(Capsule().stroke(selected ? Color.red.opacity(0.75) : (active && !simulating ? color : Color.clear), lineWidth: 1.5))
+        .overlay(alignment: .topTrailing) {
+            if selected && !simulating {
+                Button { app.confirmDeleteSelectedLayers() } label: {
+                    Image(systemName: "xmark").font(.system(size: 7, weight: .heavy)).foregroundStyle(.white)
+                        .frame(width: 16, height: 16).background(Circle().fill(Color.red))
+                }
+                .buttonStyle(.plain).offset(x: 5, y: -5).help("Delete the selected layers")
+            }
+        }
+        .contentShape(Capsule())
+        .onTapGesture {
+            if simulating, let id { if held { app.simHeld.remove(id) } else { app.simHeld.insert(id) } }
+            else if let id, NSEvent.modifierFlags.contains(.shift) { app.toggleLayerSelection(id) }
+            else { app.clearLayerSelection(); app.activeLayer = id }
+        }
+        .modifier(ReorderModifier(app: app, id: id))
+        .popover(isPresented: SwiftUI.Binding(get: { id != nil && popoverOpen }, set: { if !$0 { app.layerPopover = nil } }), arrowEdge: .bottom) {
+            if let id { LayerSettingsHost(id: id) }
+        }
+    }
+}
+
+/// Reports the layer bar's height so the window can keep room for the dock below it.
+struct LayerBarHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 struct LayerBar: View {
     @EnvironmentObject var app: AppState
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            FlowLayout(spacing: 8, lineSpacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
+            // Chips wrap onto more lines and the bar grows with them (fixedSize makes the height follow the wrapped width).
+            FlowLayout(spacing: 10, lineSpacing: 12) {
                 chip(id: nil, name: "Base", hex: nil, shape: "circle.dashed", trigger: "")
                 ForEach(Array(app.project.layers.enumerated()), id: \.element.id) { i, l in
                     chip(id: l.id, name: l.name, hex: l.colorHex, shape: Theme.shape(forLayerIndex: i), trigger: l.triggerKeys.map { KeyGlyphs.glyph($0) }.joined())
@@ -144,57 +224,38 @@ struct LayerBar: View {
                     Text("No layers yet. Add one with +, or pick a preset from Library.").font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
                 }
             }
-            Spacer(minLength: 12)
-            if app.simulate {
-                Text("Hold:").font(.system(size: 11)).foregroundStyle(.secondary)
-                ForEach(["command", "control", "option", "shift"], id: \.self) { m in
-                    Toggle(modSymbol(m), isOn: Binding(get: { app.simMods.contains(m) }, set: { on in
-                        if on { app.simMods.insert(m) } else { app.simMods.remove(m) } })).toggleStyle(.button).controlSize(.small)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                if app.simulate {
+                    Text("Hold:").font(.system(size: 11)).foregroundStyle(.secondary)
+                    ForEach(["command", "control", "option", "shift"], id: \.self) { m in
+                        Toggle(modSymbol(m), isOn: Binding(get: { app.simMods.contains(m) }, set: { on in
+                            if on { app.simMods.insert(m) } else { app.simMods.remove(m) } })).toggleStyle(.button).controlSize(.small)
+                    }
+                } else {
+                    Toggle("All layers", isOn: $app.showAllLayers).toggleStyle(.switch).controlSize(.small)
                 }
-            } else {
-                Toggle("All layers", isOn: $app.showAllLayers).toggleStyle(.switch).controlSize(.small)
+                Picker("", selection: $app.layoutKind) { ForEach(Keycodes.LayoutKind.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
+                    .pickerStyle(.segmented).frame(width: 150).labelsHidden()
+                Picker("", selection: $app.mediaRow) { Text("F1–F12").tag(false); Text("Media").tag(true) }
+                    .pickerStyle(.segmented).frame(width: 130).labelsHidden()
+                    .help("Top row as function keys, or as the media keys it sends without fn. A rule on either one fires for both.")
             }
-            Picker("", selection: $app.layoutKind) { ForEach(Keycodes.LayoutKind.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented).frame(width: 150).labelsHidden()
-            Picker("", selection: $app.mediaRow) { Text("F1–F12").tag(false); Text("Media").tag(true) }
-                .pickerStyle(.segmented).frame(width: 130).labelsHidden()
-                .help("Top row as function keys, or as the media keys it sends without fn. A rule on either one fires for both.")
+            .fixedSize().frame(height: 28)
         }
-        .frame(minHeight: 28)
+        .background(GeometryReader { Color.clear.preference(key: LayerBarHeightKey.self, value: $0.size.height) })
+        .onPreferenceChange(LayerBarHeightKey.self) { h in
+            let extra = max(0, (h - 28).rounded())
+            if extra != app.layerBarExtra { app.layerBarExtra = extra }
+        }
     }
 
     func chip(id: String?, name: String, hex: String?, shape: String, trigger: String) -> some View {
-        let color = hex.map(Color.init(hex:)) ?? Color.secondary
-        let active = app.activeLayer == id
-        let held = id.map { app.simHeld.contains($0) } ?? false
-        let showHeld = app.simulate && id != nil
-        return HStack(spacing: 6) {
-            Image(systemName: shape).font(.system(size: 10)).foregroundStyle(showHeld && held ? Color.white : color)
-            Text(name).font(.system(size: 12, weight: .medium)).fixedSize()
-                .foregroundStyle(showHeld && held ? Color.white : Color.primary)
-            if !trigger.isEmpty {
-                Text(trigger).font(.system(size: 11, weight: .semibold)).foregroundStyle(showHeld && held ? Color.white.opacity(0.85) : Color.secondary).fixedSize()
-            }
-            if id != nil && !app.simulate {
-                Button {
-                    app.activeLayer = id
-                    app.layerPopover = (app.layerPopover == id ? nil : id)
-                } label: { Image(systemName: "slider.horizontal.3").font(.system(size: 11)).frame(width: 18, height: 18).contentShape(Rectangle()) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary).help("Layer settings")
-            }
-        }
-        .padding(.horizontal, 11).frame(height: 28)
-        .background(Capsule().fill(showHeld && held ? color : (active && !app.simulate ? color.opacity(0.20) : Color.primary.opacity(0.06))))
-        .overlay(Capsule().stroke(active && !app.simulate ? color : Color.clear, lineWidth: 1.5))
-        .contentShape(Capsule())
-        .onTapGesture {
-            if app.simulate, let id { if held { app.simHeld.remove(id) } else { app.simHeld.insert(id) } }
-            else { app.activeLayer = id }
-        }
-        .modifier(ReorderModifier(id: id))
-        .popover(isPresented: Binding(get: { id != nil && app.layerPopover == id }, set: { if !$0 { app.layerPopover = nil } }), arrowEdge: .bottom) {
-            if let id, let layer = app.project.layer(id) { LayerSettings(layer: layer).frame(width: 320).padding(14) }
-        }
+        LayerChip(id: id, name: name, hex: hex, shape: shape, trigger: trigger,
+                  active: app.activeLayer == id, held: id.map { app.simHeld.contains($0) } ?? false, simulating: app.simulate,
+                  selected: id.map { app.layerSelection.contains($0) } ?? false, popoverOpen: id != nil && app.layerPopover == id, app: app)
+            .equatable()
     }
 }
 

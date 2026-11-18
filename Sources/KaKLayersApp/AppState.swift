@@ -202,6 +202,14 @@ final class AppState: ObservableObject {
         typeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] ev in
             guard let self, self.recording == nil, !self.simulate else { return ev }
             if let r = NSApp.keyWindow?.firstResponder, r is NSTextView || r is NSTextField { return ev }
+            // With layers selected, Delete removes them and Esc clears the selection.
+            if !self.layerSelection.isEmpty, !ev.modifierFlags.contains(.command) {
+                switch ev.keyCode {
+                case 51, 117: self.confirmDeleteSelectedLayers(); return nil
+                case 53: self.clearLayerSelection(); return nil
+                default: break
+                }
+            }
             // ⌘C / ⌘V copy and paste the selected key's settings (text fields keep their normal copy/paste)
             if ev.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command], self.editingChord == nil, let k = self.selectedKey {
                 switch ev.charactersIgnoringModifiers?.lowercased() {
@@ -235,6 +243,44 @@ final class AppState: ObservableObject {
         alert.addButton(withTitle: "Delete"); alert.addButton(withTitle: "Cancel")
         alert.alertStyle = .warning
         if alert.runModal() == .alertFirstButtonReturn { deleteLayer(id) }
+    }
+    // MARK: Multi-select layers (shift-click) and delete
+    @Published var layerSelection: Set<String> = []
+    /// Extra height the layer bar needs when its chips wrap onto more lines; the window's minimum height grows by this.
+    @Published var layerBarExtra: CGFloat = 0
+
+    /// Shift-click: add or remove a layer from the selection (the layer you were on counts as the first pick).
+    func toggleLayerSelection(_ id: String) {
+        if layerSelection.isEmpty, let a = activeLayer, a != id { layerSelection = [a] }
+        if layerSelection.contains(id) { layerSelection.remove(id) } else { layerSelection.insert(id) }
+        let n = layerSelection.count
+        status = n == 0 ? "" : "\(n) layer\(n == 1 ? "" : "s") selected. Press Delete or click ✕ to delete them, Esc to cancel."
+    }
+    func clearLayerSelection() { if !layerSelection.isEmpty { layerSelection = []; status = "" } }
+
+    func confirmDeleteSelectedLayers() {
+        let ids = layerSelection.filter { project.layer($0) != nil }
+        guard !ids.isEmpty else { layerSelection = []; return }
+        if ids.count == 1, let id = ids.first { layerSelection = []; confirmDeleteLayer(id); return }
+        let layers = project.layers.filter { ids.contains($0.id) }
+        let n = project.bindings.filter { $0.layerId.map(ids.contains) ?? false }.count
+        let alert = NSAlert()
+        alert.messageText = "Delete \(ids.count) layers?"
+        alert.informativeText = layers.prefix(6).map { "• " + $0.name }.joined(separator: "\n")
+            + (layers.count > 6 ? "\n• and \(layers.count - 6) more" : "")
+            + "\n\nTheir \(n) binding(s) will be deleted too. You can undo this with ⌘Z."
+        alert.addButton(withTitle: "Delete"); alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+        if alert.runModal() == .alertFirstButtonReturn { deleteLayers(ids) }
+    }
+    /// One change, so one undo step.
+    func deleteLayers(_ ids: Set<String>) {
+        var p = project
+        p.removeLayers(ids)
+        project = p
+        if let a = activeLayer, ids.contains(a) { activeLayer = nil }
+        layerSelection = []
+        status = "Deleted \(ids.count) layer\(ids.count == 1 ? "" : "s")."
     }
     func deleteLayer(_ id: String) {
         project.layers.removeAll { $0.id == id }

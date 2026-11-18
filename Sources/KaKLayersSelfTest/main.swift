@@ -223,6 +223,18 @@ func testTopRowMatchesFunctionAndMediaKeys() {
     for m in Keycodes.mediaRow { expect(!Keycodes.aliases(of: m.code).isEmpty) }
 }
 
+func testRemoveSeveralLayers() {
+    func layer(_ id: String) -> Layer { Layer(id: id, name: id, colorHex: "#4F8EF7", triggerKeys: [id]) }
+    func bind(_ l: String?, _ k: String) -> KeyBinding { KeyBinding(layerId: l, fromKeys: [k], onPress: [.key(KeyCombo(key: "b"))]) }
+    var p = Project(layers: [layer("a"), layer("b"), layer("c"), layer("d")],
+                    bindings: [bind("a", "h"), bind("b", "h"), bind("c", "h"), bind("d", "h"), bind(nil, "h")])
+    p.removeLayers(["b", "c", "zzz"])
+    expect(p.layers.map(\.id) == ["a", "d"])
+    expect(Set(p.bindings.map { $0.layerId ?? "base" }) == ["a", "d", "base"] && p.bindings.count == 3)
+    p.removeLayers([])
+    expect(p.layers.count == 2)
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -431,7 +443,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

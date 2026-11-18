@@ -197,3 +197,11 @@ public extension Project {
         bindings += settings.map { var b = $0; b.id = UUID(); b.layerId = layer; b.fromKeys = [key]; return b }
     }
 }
+
+public extension Project {
+    /// Removes several layers and every binding that belongs to them in one change.
+    mutating func removeLayers(_ ids: Set<String>) {
+        layers.removeAll { ids.contains($0.id) }
+        bindings.removeAll { $0.layerId.map(ids.contains) ?? false }
+    }
+}
