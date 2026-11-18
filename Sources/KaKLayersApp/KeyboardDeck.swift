@@ -146,12 +146,10 @@ struct MouseBody: View {
             shape.fill(Theme.plate)
                 .overlay(shape.stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
                 .frame(width: x1 - x0, height: y1 - y0).offset(x: x0, y: y0)
-            HStack(spacing: 5) {
-                Image(systemName: "computermouse").font(.system(size: 10, weight: .semibold))
-                Text("MOUSE").font(.system(size: 10, weight: .semibold)).tracking(0.8)
-            }
-            .foregroundStyle(.secondary)
-            .frame(width: (1.9 * unit).rounded()).offset(x: (20.85 * unit).rounded(), y: (5.45 * unit).rounded())
+            // A quiet name in the free part of the palm: no icon, no capitals, centered between the thumb keys and the edge.
+            Text("Mouse").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary.opacity(0.75))
+                .frame(width: (2.4 * unit).rounded(), height: (1.0 * unit).rounded())
+                .offset(x: (20.3 * unit).rounded(), y: (4.75 * unit).rounded())
         }
         .allowsHitTesting(false)
     }
