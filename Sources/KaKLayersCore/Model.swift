@@ -13,7 +13,9 @@ public struct KeyCombo: Codable, Hashable {
 /// One step in an action chain. Chains run in order, so delays and shell
 /// commands can be interleaved with keypresses.
 public enum Action: Codable, Hashable {
-    case key(KeyCombo)
+    case key(KeyCombo)               // key press: down and up
+    case keyDown(KeyCombo)           // hold a key down (until a matching key up, or while the trigger is held)
+    case keyUp(KeyCombo)             // release a key that was held down
     case consumer(String)            // consumer_key_code, e.g. "play_or_pause"
     case mouse(String)               // pointing_button, e.g. "button1"
     case shell(String)               // shell_command

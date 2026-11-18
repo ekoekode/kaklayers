@@ -46,16 +46,30 @@ struct ActionRow: View {
     let index: Int
     var rid: String { "\(listId)#\(index)" }
 
+    /// Key steps come in three kinds: press (down and up), down (hold) and up (release).
+    static func keyKind(_ a: Action) -> Int { switch a { case .keyDown: 1; case .keyUp: 2; default: 0 } }
+    static func makeKey(_ kind: Int, _ c: KeyCombo) -> Action {
+        switch kind { case 1: .keyDown(c); case 2: .keyUp(KeyCombo(key: c.key)); default: .key(c) }
+    }
+
     var body: some View {
         switch action {
-        case .key(let c):
+        case .key(let c), .keyDown(let c), .keyUp(let c):
+            let kind = Self.keyKind(action)
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    Image(systemName: "keyboard").font(.system(size: 10)).foregroundStyle(.secondary)
-                    ForEach(["command", "control", "option", "shift"], id: \.self) { m in
-                        Toggle(modSymbol(m), isOn: SwiftUI.Binding(get: { c.modifiers.contains(m) }, set: { on in
-                            var n = c; n.modifiers.removeAll { $0 == m }; if on { n.modifiers.append(m) }; action = .key(n)
-                        })).toggleStyle(.button).controlSize(.small)
+                Picker("", selection: SwiftUI.Binding(get: { kind }, set: { action = Self.makeKey($0, c) })) {
+                    Text("Press").tag(0); Text("Down").tag(1); Text("Up").tag(2)
+                }
+                .pickerStyle(.segmented).controlSize(.small).labelsHidden().frame(width: 150)
+                .help("Press is down and up. Down holds the key; Up releases it, so you can put delays and other steps between.")
+                if kind != 2 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "keyboard").font(.system(size: 10)).foregroundStyle(.secondary)
+                        ForEach(["command", "control", "option", "shift"], id: \.self) { m in
+                            Toggle(modSymbol(m), isOn: SwiftUI.Binding(get: { c.modifiers.contains(m) }, set: { on in
+                                var n = c; n.modifiers.removeAll { $0 == m }; if on { n.modifiers.append(m) }; action = Self.makeKey(kind, n)
+                            })).toggleStyle(.button).controlSize(.small)
+                        }
                     }
                 }
                 HStack(spacing: 4) {
@@ -65,13 +79,14 @@ struct ActionRow: View {
                     }
                     .controlSize(.small)
                     .popover(isPresented: SwiftUI.Binding(get: { app.keyPickerFor == rid }, set: { if !$0 { app.keyPickerFor = nil } })) {
-                        KeyPickerList(selected: c.key) { code in action = .key(KeyCombo(key: code, modifiers: c.modifiers)); app.keyPickerFor = nil }
+                        KeyPickerList(selected: c.key) { code in action = Self.makeKey(kind, KeyCombo(key: code, modifiers: c.modifiers)); app.keyPickerFor = nil }
                     }
                     Button(app.recording == .action(rid) ? "Press…" : "Record") {
-                        app.record(.action(rid)) { r in if let m = r.main { action = .key(KeyCombo(key: m, modifiers: r.modifiers)) } }
+                        app.record(.action(rid)) { r in if let m = r.main { action = Self.makeKey(kind, KeyCombo(key: m, modifiers: r.modifiers)) } }
                     }.controlSize(.small)
                 }
             }
+            .fixedSize()        // a step card is as wide as its contents, so nothing in it gets squeezed
         case .delay(let ms):
             HStack(spacing: 6) {
                 Image(systemName: "timer").font(.system(size: 11)).foregroundStyle(.secondary)

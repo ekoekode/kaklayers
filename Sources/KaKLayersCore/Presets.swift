@@ -84,6 +84,15 @@ public enum ConflictChecker {
                 out.append(Problem(severity: .info, message: "“\(l.name)”: tapping \(Keycodes.label(l.triggerKeys[0])) outputs nothing, because it is a modifier. Add a tap output if you want one."))
             }
         }
+        for l in p.layers {
+            for m in KarabinerCompiler.analyze(l.tapAction) { out.append(Problem(severity: .warning, message: "“\(l.name)” tap: \(m)")) }
+        }
+        for b in p.bindings where b.enabled && !b.isEmpty {
+            let where_ = "\(Keycodes.label(b.fromKeys.first ?? "?")) in “\(p.layer(b.layerId)?.name ?? "Base")”"
+            for list in [b.onPress, b.onTap, b.onHold, b.onDoubleTap, b.onRelease] {
+                for m in KarabinerCompiler.analyze(list) { out.append(Problem(severity: .warning, message: "\(where_): \(m)")) }
+            }
+        }
         let usesMouse = p.layers.contains { $0.triggerKeys.contains(where: Keycodes.isMouseButton) }
             || p.bindings.contains { $0.enabled && !$0.isEmpty && $0.fromKeys.contains(where: Keycodes.isMouseButton) }
         if usesMouse {

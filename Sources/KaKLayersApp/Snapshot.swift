@@ -16,6 +16,7 @@ enum Snapshot {
                        ("u", "page_down"), ("i", "page_up"), ("y", "home"), ("o", "end")] {
             bs.append(KeyBinding(layerId: "nav", fromKeys: [f], onPress: [k(t)]))
         }
+        bs.append(KeyBinding(layerId: "nav", fromKeys: ["f"], onPress: [.keyDown(KeyCombo(key: "left_shift")), .delay(100), .key(KeyCombo(key: "a")), .key(KeyCombo(key: "b")), .keyUp(KeyCombo(key: "left_shift"))]))
         bs.append(KeyBinding(layerId: "nav", fromKeys: ["h"], fromModifiers: ["command"], onPress: [k("left_arrow", ["command"])]))
         bs.append(KeyBinding(layerId: "nav", fromKeys: ["spacebar"], onPress: [k("return_or_enter")], onHold: [.delay(150), k("tab")]))
         for (f, app) in [("t", "com.apple.Terminal"), ("s", "com.apple.Safari"), ("m", "com.apple.mail"), ("n", "com.apple.Notes")] {

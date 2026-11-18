@@ -231,7 +231,86 @@ public enum KarabinerCompiler {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    static func events(_ actions: [Action]) -> [JSON] { actions.map(event) }
+    /// Karabiner has no key-up event inside `to`, so "key down … key up" is compiled from what it can express:
+    ///  • down then up with only delays between: one key event held that long (`hold_down_milliseconds`);
+    ///  • a held modifier: added to the `modifiers` of every key press and click between its down and its up;
+    ///  • a key left down at the end: the last event, which Karabiner keeps down while the trigger is held.
+    /// A non-modifier key cannot stay down while other keys are pressed; `analyze` reports that.
+    public static func events(_ actions: [Action]) -> [JSON] {
+        var out: [JSON] = []
+        var held: [String] = []                 // modifier keys currently down
+        var consumed = Set<Int>()
+        for (i, a) in actions.enumerated() where !consumed.contains(i) {
+            switch a {
+            case .keyDown(let c):
+                if let j = matchingKeyUp(for: c.key, after: i, in: actions) {
+                    let between = actions[(i + 1)..<j]
+                    let delays = between.reduce(0) { sum, x in if case .delay(let ms) = x { return sum + ms } else { return sum } }
+                    let onlyDelays = between.allSatisfy { if case .delay = $0 { return true } else { return false } }
+                    if onlyDelays {
+                        out.append(keyEvent(c, held: held, hold: delays))
+                        for k in (i + 1)...j { consumed.insert(k) }
+                    } else if isModifier(c.key) {
+                        held.append(c.key)       // applied to the steps in between; released at its key up
+                    } else {
+                        // cannot overlap: hold through the delays, then carry on with the other steps
+                        out.append(keyEvent(c, held: held, hold: delays))
+                        consumed.insert(j)
+                        for k in (i + 1)..<j { if case .delay = actions[k] { consumed.insert(k) } }
+                    }
+                } else if isModifier(c.key), i < actions.count - 1 {
+                    held.append(c.key)           // no key up: stays down for the rest of the sequence
+                } else {
+                    out.append(keyEvent(c, held: held, hold: 0))
+                }
+            case .keyUp(let c):
+                held.removeAll { $0 == c.key }
+            case .key(let c):
+                out.append(keyEvent(c, held: held, hold: 0))
+            case .mouse(let b):
+                var e: JSON = ["pointing_button": b]
+                if !held.isEmpty { e["modifiers"] = held }
+                out.append(e)
+            default:
+                out.append(event(a))
+            }
+        }
+        for m in held { out.append(["key_code": m]) }      // still down at the end: held while the trigger is held
+        return out
+    }
+
+    static func matchingKeyUp(for key: String, after i: Int, in actions: [Action]) -> Int? {
+        actions.indices.dropFirst(i + 1).first { if case .keyUp(let u) = actions[$0], u.key == key { return true } else { return false } }
+    }
+
+    static func keyEvent(_ c: KeyCombo, held: [String], hold: Int) -> JSON {
+        var e: JSON = ["key_code": c.key]
+        let mods = (c.modifiers + held).filter { $0 != c.key }
+        if !mods.isEmpty { e["modifiers"] = Array(NSOrderedSet(array: mods)) as! [String] }
+        if hold > 0 { e["hold_down_milliseconds"] = hold }
+        return e
+    }
+
+    /// Problems with key down / key up steps that Karabiner cannot express exactly (shown in the checks).
+    public static func analyze(_ actions: [Action]) -> [String] {
+        var out: [String] = []
+        for (i, a) in actions.enumerated() {
+            switch a {
+            case .keyDown(let c):
+                if let j = matchingKeyUp(for: c.key, after: i, in: actions) {
+                    let onlyDelays = actions[(i + 1)..<j].allSatisfy { if case .delay = $0 { return true } else { return false } }
+                    if !onlyDelays && !isModifier(c.key) {
+                        out.append("Key down on \(Keycodes.label(c.key)) is only held through delays: Karabiner cannot keep a regular key down while other steps press keys. Modifier keys (⌘ ⌃ ⌥ ⇧) can be held across steps.")
+                    }
+                }
+            case .keyUp(let c):
+                let hasDown = actions[..<i].contains { if case .keyDown(let d) = $0, d.key == c.key { return true } else { return false } }
+                if !hasDown { out.append("Key up on \(Keycodes.label(c.key)) has no key down before it, so it does nothing.") }
+            default: break
+            }
+        }
+        return out
+    }
 
     static func event(_ a: Action) -> JSON {
         switch a {
@@ -239,6 +318,8 @@ public enum KarabinerCompiler {
             var e: JSON = ["key_code": c.key]
             if !c.modifiers.isEmpty { e["modifiers"] = c.modifiers }
             return e
+        case .keyDown(let c): return keyEvent(c, held: [], hold: 0)
+        case .keyUp: return ["key_code": "vk_none"]                  // handled in events(); a no-op if it ever reaches here
         case .consumer(let k): return [Keycodes.codeField(k): k]
         case .mouse(let b): return ["pointing_button": b]
         case .shell(let s): return ["shell_command": s]

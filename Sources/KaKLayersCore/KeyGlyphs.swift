@@ -93,6 +93,8 @@ public enum KeyGlyphs {
     public static func candidates(_ a: Action) -> [String] {
         switch a {
         case .key(let c): return unique([combo(c), combo(c, compact: true), glyph(c.key)])
+        case .keyDown(let c): return unique(["↧" + combo(c), "↧" + combo(c, compact: true), "↧" + glyph(c.key), "↧"])
+        case .keyUp(let c): return unique(["↥" + glyph(c.key), "↥"])
         case .consumer(let k): return [consumer[k] ?? "♫"]
         case .mouse(let b): return unique(["🖱" + glyph(b), "🖱"])
         case .shell: return ["$"]
@@ -145,6 +147,8 @@ public enum KeyGlyphs {
     public static func words(_ a: Action) -> String {
         switch a {
         case .key(let c): return "Press " + combo(c)
+        case .keyDown(let c): return "Hold down " + combo(c)
+        case .keyUp(let c): return "Release " + glyph(c.key)
         case .consumer(let k): return "Media: " + k.replacingOccurrences(of: "_", with: " ")
         case .mouse(let b): return "Click the " + Keycodes.mouseName(b).lowercased() + " button"
         case .shell(let s): return "Run: " + s

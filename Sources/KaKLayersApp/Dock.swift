@@ -215,7 +215,9 @@ struct ActionRail: View {
             HStack(spacing: 6) {
                 if !actions.isEmpty { Image(systemName: "arrow.right").font(.system(size: 10)).foregroundStyle(.tertiary) }
                 Menu {
-                    Button("Keypress") { actions.append(.key(KeyCombo(key: "a"))) }
+                    Button("Key press (down and up)") { actions.append(.key(KeyCombo(key: "a"))) }
+                    Button("Key down (hold)") { actions.append(.keyDown(KeyCombo(key: "left_shift"))) }
+                    Button("Key up (release)") { actions.append(.keyUp(KeyCombo(key: "left_shift"))) }
                     Button("Delay") { actions.append(.delay(100)) }
                     Button("Shell command or script") { actions.append(.shell("")) }
                     Button("Open app") { actions.append(.openApp("com.apple.Terminal")) }
