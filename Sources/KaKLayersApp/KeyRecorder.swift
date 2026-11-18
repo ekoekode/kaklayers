@@ -15,7 +15,7 @@ final class KeyRecorder {
     func start(_ done: @escaping (Result) -> Void) {
         stop()
         pressed = []; seen = []; onDone = done
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak self] ev in
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged, .otherMouseDown, .otherMouseUp]) { [weak self] ev in
             self?.handle(ev); return nil
         }
     }
@@ -28,6 +28,11 @@ final class KeyRecorder {
     private func handle(_ ev: NSEvent) {
         let code = Int(ev.keyCode)
         switch ev.type {
+        case .otherMouseDown, .otherMouseUp:
+            // Middle, back and forward buttons (button3 to button5). Left and right clicks stay with the app's own controls.
+            let n = ev.buttonNumber + 1
+            guard (3...5).contains(n) else { return }
+            if ev.type == .otherMouseDown { down("button\(n)") } else { up("button\(n)") }
         case .keyDown:
             guard !ev.isARepeat, let k = Keycodes.byMac[code]?.code else { return }
             down(k)

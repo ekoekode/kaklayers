@@ -235,6 +235,36 @@ func testRemoveSeveralLayers() {
     expect(p.layers.count == 2)
 }
 
+func testMouseButtons() {
+    func manips(_ p: Project) -> [JSON] { KarabinerCompiler.rules(for: p).flatMap { ($0["manipulators"] as? [JSON]) ?? [] } }
+    // Bindings match and send mouse buttons in the field Karabiner expects.
+    let b = KeyBinding(fromKeys: ["button4"], onPress: [.key(KeyCombo(key: "open_bracket", modifiers: ["command"]))])
+    let m = manips(Project(bindings: [b]))[0]
+    expect((m["from"] as! JSON)["pointing_button"] as? String == "button4")
+    let click = KeyBinding(fromKeys: ["a"], onPress: [.mouse("button2")])
+    expect((manips(Project(bindings: [click]))[0]["to"] as! [JSON])[0]["pointing_button"] as? String == "button2")
+    // A layer on the middle button: tapping it still middle-clicks.
+    let layer = Layer(id: "m", name: "M", colorHex: "#4F8EF7", triggerKeys: ["button3"])
+    let trig = manips(Project(layers: [layer])).last!
+    expect((trig["from"] as! JSON)["pointing_button"] as? String == "button3")
+    expect(((trig["to_if_alone"] as! [JSON])[0])["pointing_button"] as? String == "button3")
+    // Hold-only mouse binding keeps its click on tap.
+    let hold = KeyBinding(fromKeys: ["button5"], onHold: [.key(KeyCombo(key: "a"))])
+    expect(((manips(Project(bindings: [hold]))[0]["to_if_alone"] as! [JSON])[0])["pointing_button"] as? String == "button5")
+    // Left/right as a layer trigger is flagged; extra buttons are not.
+    let left = Project(layers: [Layer(id: "l", name: "L", colorHex: "#4F8EF7", triggerKeys: ["button1"])])
+    expect(ConflictChecker.check(left).contains { $0.severity == .warning })
+    expect(!ConflictChecker.check(Project(layers: [layer])).contains { $0.severity == .warning })
+    expect(ConflictChecker.check(Project(bindings: [b])).contains { $0.message.contains("EventViewer") })
+    expect(!ConflictChecker.check(Project(bindings: [click])).contains { $0.message.contains("EventViewer") })
+    // The deck draws all five buttons and they are not keyboard keys.
+    for kind in Keycodes.LayoutKind.allCases {
+        let codes = Set(Keycodes.layout(kind).map(\.code))
+        expect(Keycodes.mouseButtons.isSubset(of: codes))
+    }
+    expect(Keycodes.byMac.values.allSatisfy { !Keycodes.isMouseButton($0.code) })
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -443,7 +473,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

@@ -77,9 +77,17 @@ public enum ConflictChecker {
             for b in p.bindings where b.layerId == nil && b.enabled && l.triggerKeys.count == 1 && b.fromKeys == l.triggerKeys && !b.isEmpty {
                 out.append(Problem(severity: .warning, message: "Base binding on \(Keycodes.label(b.fromKeys[0])) is shadowed by layer “\(l.name)” using it as a trigger."))
             }
+            if l.triggerKeys.count == 1, let t = l.triggerKeys.first, t == "button1" || t == "button2" {
+                out.append(Problem(severity: .warning, message: "“\(l.name)”: \(Keycodes.label(t)) click as a layer trigger changes how normal clicking and dragging feel. The extra buttons (Middle, Back, Forward) are safer triggers."))
+            }
             if l.mode == .momentary, l.tapAction.isEmpty, l.triggerKeys.count == 1, KarabinerCompiler.isModifier(l.triggerKeys[0]) {
                 out.append(Problem(severity: .info, message: "“\(l.name)”: tapping \(Keycodes.label(l.triggerKeys[0])) outputs nothing, because it is a modifier. Add a tap output if you want one."))
             }
+        }
+        let usesMouse = p.layers.contains { $0.triggerKeys.contains(where: Keycodes.isMouseButton) }
+            || p.bindings.contains { $0.enabled && !$0.isEmpty && $0.fromKeys.contains(where: Keycodes.isMouseButton) }
+        if usesMouse {
+            out.append(Problem(severity: .info, message: "Mouse buttons only work for devices Karabiner sees as a mouse. Trackpad clicks and a Magic Mouse's left/right click may not be reported, so check Karabiner-Elements' EventViewer while you click."))
         }
         var dup: Set<String> = []
         for b in p.bindings where b.enabled && !b.isEmpty {

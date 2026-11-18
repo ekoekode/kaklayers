@@ -15,6 +15,10 @@ public enum Keycodes {
     ]
     public static func isConsumer(_ k: String) -> Bool { consumerKeys.contains(k) }
 
+    /// Mouse buttons as Karabiner names them: button1 left, button2 right, button3 middle, button4 back, button5 forward.
+    public static let mouseButtons: Set<String> = ["button1", "button2", "button3", "button4", "button5"]
+    public static func isMouseButton(_ k: String) -> Bool { mouseButtons.contains(k) }
+
     /// Karabiner keeps media/system keys in three separate families (names verified against the installed
     /// Karabiner-Elements' own key list). Backlight keys and Mission Control/Launchpad/Spotlight are vendor codes.
     public static let vendorKeyboardKeys: Set<String> = ["mission_control", "launchpad", "spotlight", "dashboard"]
@@ -23,6 +27,7 @@ public enum Keycodes {
     public static var mediaKeys: [String] { (Array(consumerKeys) + Array(vendorKeyboardKeys) + Array(vendorTopCaseKeys)).sorted() }
     /// The JSON field a key belongs in: key_code, consumer_key_code or one of the Apple vendor fields.
     public static func codeField(_ k: String) -> String {
+        if mouseButtons.contains(k) { return "pointing_button" }
         if consumerKeys.contains(k) { return "consumer_key_code" }
         if vendorKeyboardKeys.contains(k) { return "apple_vendor_keyboard_key_code" }
         if vendorTopCaseKeys.contains(k) { return "apple_vendor_top_case_key_code" }
@@ -96,7 +101,7 @@ public enum Keycodes {
         }
     }
 
-    public static let all: [KeyDef] = mainBlock + navCluster + numpad
+    public static let all: [KeyDef] = mainBlock + navCluster + numpad + mouseCluster
     public static let byCode: [String: KeyDef] = Dictionary((all + isoExtras + jisExtras + mediaDefs).map { ($0.code, $0) }, uniquingKeysWith: { a, _ in a })
 
     public enum LayoutKind: String, CaseIterable, Codable { case ansi = "ANSI", iso = "ISO", jis = "JIS" }
@@ -169,7 +174,7 @@ public enum Keycodes {
         out += isoExtras
         return out
     }
-    public static let byMac: [Int: KeyDef] = Dictionary(all.map { ($0.mac, $0) }, uniquingKeysWith: { a, _ in a })
+    public static let byMac: [Int: KeyDef] = Dictionary(all.filter { $0.mac >= 0 }.map { ($0.mac, $0) }, uniquingKeysWith: { a, _ in a })
 
     public static func label(_ code: String) -> String { byCode[code]?.label ?? code }
 
@@ -221,6 +226,16 @@ public enum Keycodes {
         r += row(2.5, x0: 15.5, [k("delete_forward","del⌦",117), k("end","end",119), k("page_down","pg↓",121)])
         return r
     }()
+
+    /// Mouse buttons sit in the empty block under the navigation cluster, on the same columns and rows as the keys around them.
+    /// Negative `mac` values keep them out of keyboard lookups.
+    static let mouseCluster: [KeyDef] = [
+        KeyDef(code: "button1", label: "Left", mac: -1, x: 15.5, y: 3.5, w: 1, h: 1),
+        KeyDef(code: "button3", label: "Middle", mac: -3, x: 16.5, y: 3.5, w: 1, h: 1),
+        KeyDef(code: "button2", label: "Right", mac: -2, x: 17.5, y: 3.5, w: 1, h: 1),
+        KeyDef(code: "button4", label: "Back", mac: -4, x: 15.5, y: 4.5, w: 1, h: 1),
+        KeyDef(code: "button5", label: "Fwd", mac: -5, x: 16.5, y: 4.5, w: 1, h: 1),
+    ]
 
     static let numpad: [KeyDef] = {
         var r: [KeyDef] = []

@@ -117,6 +117,7 @@ struct KeyboardDeck: View {
     var body: some View {
         let models = app.capModels(unit: unit)
         ZStack(alignment: .topLeading) {
+            MousePlate(unit: unit)
             ForEach(models, id: \.key.code) { m in
                 let r = Theme.rect(m.key, unit: unit)
                 KeyCapView(m: m, unit: unit, app: app).equatable()
@@ -126,6 +127,28 @@ struct KeyboardDeck: View {
             HoverCard(unit: unit, hover: app.hover)
         }
         .frame(width: Theme.deckWidth(unit) - Theme.gap, height: Theme.deckHeight(unit) - Theme.gap, alignment: .topLeading)
+    }
+}
+
+/// A quiet plate behind the mouse buttons so they read as one group, with a caption in the free row below.
+struct MousePlate: View {
+    let unit: CGFloat
+    var body: some View {
+        let pad: CGFloat = 5
+        let x0 = (15.5 * unit).rounded() - pad, x1 = (18.5 * unit).rounded() - Theme.gap + pad
+        let y0 = (3.5 * unit).rounded() - pad, y1 = (5.5 * unit).rounded() - Theme.gap + pad
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: Theme.cornerKey + 4).fill(Theme.plate)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerKey + 4).stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
+                .frame(width: x1 - x0, height: y1 - y0).offset(x: x0, y: y0)
+            HStack(spacing: 5) {
+                Image(systemName: "computermouse").font(.system(size: 10, weight: .semibold))
+                Text("MOUSE").font(.system(size: 10, weight: .semibold)).tracking(0.8)
+            }
+            .foregroundStyle(.secondary)
+            .offset(x: x0 + 6, y: (5.5 * unit).rounded() + 6)
+        }
+        .allowsHitTesting(false)
     }
 }
 

@@ -59,6 +59,7 @@ public enum KeyGlyphs {
         "keypad_slash": "/", "keypad_asterisk": "*", "keypad_hyphen": "-", "keypad_plus": "+", "keypad_period": ".", "keypad_equal_sign": "=",
         "keypad_num_lock": "⌧", "non_us_backslash": "|", "non_us_pound": "#",
         "international1": "_", "international3": "¥", "japanese_eisuu": "英", "japanese_kana": "か",
+        "button1": "L", "button2": "R", "button3": "M", "button4": "⇠", "button5": "⇢",
     ]
     static let consumer: [String: String] = [
         "play_or_pause": "⏯", "mute": "🔇", "volume_increment": "🔊", "volume_decrement": "🔉",
@@ -93,7 +94,7 @@ public enum KeyGlyphs {
         switch a {
         case .key(let c): return unique([combo(c), combo(c, compact: true), glyph(c.key)])
         case .consumer(let k): return [consumer[k] ?? "♫"]
-        case .mouse: return ["🖱"]
+        case .mouse(let b): return unique(["🖱" + glyph(b), "🖱"])
         case .shell: return ["$"]
         case .delay(let ms): return unique(["⏱" + (ms >= 1000 ? "\(ms / 1000)s" : "\(ms)"), "⏱"])
         case .setVariable: return ["="]
@@ -145,7 +146,7 @@ public enum KeyGlyphs {
         switch a {
         case .key(let c): return "Press " + combo(c)
         case .consumer(let k): return "Media: " + k.replacingOccurrences(of: "_", with: " ")
-        case .mouse(let b): return "Click " + b
+        case .mouse(let b): return "Click " + Keycodes.label(b).lowercased() + " button"
         case .shell(let s): return "Run: " + s
         case .delay(let ms): return "Wait \(ms) ms"
         case .setVariable(let n, let v): return "Set \(n) = \(v)"

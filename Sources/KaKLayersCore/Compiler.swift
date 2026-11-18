@@ -57,6 +57,7 @@ public enum KarabinerCompiler {
     /// Anything the user has not defined falls back to this, so a tap never swallows the key.
     static func original(keys: [String], modifiers: [String]) -> [Action] {
         guard keys.count == 1, let k = keys.first else { return [] }
+        if Keycodes.isMouseButton(k) { return [.mouse(k)] }          // tapping a mouse button still clicks
         if Keycodes.codeField(k) != "key_code" { return [.consumer(k)] }
         return [.key(KeyCombo(key: k, modifiers: modifiers))]
     }
