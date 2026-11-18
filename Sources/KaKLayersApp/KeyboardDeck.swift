@@ -140,7 +140,7 @@ struct MouseBody: View {
         let x0 = (19.25 * unit).rounded() - pad, x1 = (22.75 * unit).rounded() - Theme.gap + pad
         let y0 = (1.5 * unit).rounded() - pad, y1 = (6.5 * unit).rounded() - Theme.gap + pad
         // The body's top corners are concentric with the buttons' outer corners (the buttons use this radius minus the inset).
-        let top = CapShape.mouseBodyRadius(unit: unit), bottom = 1.0 * unit + pad
+        let top = CapShape.mouseBodyRadius(unit: unit), bottom = top      // same roundness top and bottom
         let shape = CornerShape(tl: top, tr: top, br: bottom, bl: bottom)
         ZStack(alignment: .topLeading) {
             shape.fill(Theme.plate)
@@ -244,16 +244,16 @@ struct KeyCapView: View, Equatable {
                     .clipShape(CapShape(kind: key.shape, unit: unit))
             }
             if bottomLegend {
-                // Mouse buttons: the printed name and anything bound sit at the bottom, clear of the curved top.
+                // Mouse buttons: the printed name and anything bound are top-aligned, starting where the curve ends.
                 VStack(alignment: .leading, spacing: 3) {
-                    rowsView
                     HStack(spacing: 4) {
                         Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold)).foregroundStyle(.primary.opacity(0.78)).fixedSize()
                         badgesView(limit: 3)
                     }
+                    rowsView
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                .padding(.leading, CGFloat(Metrics.capPadding)).padding(.bottom, 7)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.leading, CGFloat(Metrics.capPadding)).padding(.top, CapShape.mouseOuterRadius(unit: unit))
             } else {
                 Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.78)).fixedSize()

@@ -78,10 +78,12 @@ struct CapShape: Shape {
     let kind: KeyShape
     var unit: CGFloat = 60
     static let mouseInset: CGFloat = 5
-    static func mouseBodyRadius(unit u: CGFloat) -> CGFloat { 1.4 * u }
+    /// One radius for all four corners of the body; the buttons' outer corners use it minus the inset.
+    static func mouseBodyRadius(unit u: CGFloat) -> CGFloat { mouseOuterRadius(unit: u) + mouseInset }
+    static func mouseOuterRadius(unit u: CGFloat) -> CGFloat { 1.0 * u }
     func path(in r: CGRect) -> Path {
         let c = Theme.cornerKey, s = min(r.width, r.height)
-        let outer = Self.mouseBodyRadius(unit: unit) - Self.mouseInset
+        let outer = Self.mouseOuterRadius(unit: unit)
         switch kind {
         case .rect: return CornerShape(tl: c, tr: c, br: c, bl: c).path(in: r)
         case .mouseLeft: return CornerShape(tl: outer, tr: c * 0.7, br: c, bl: c).path(in: r)
