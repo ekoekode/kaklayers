@@ -158,7 +158,7 @@ struct LayerBar: View {
                 .pickerStyle(.segmented).frame(width: 150).labelsHidden()
             Picker("", selection: $app.mediaRow) { Text("F1–F12").tag(false); Text("Media").tag(true) }
                 .pickerStyle(.segmented).frame(width: 130).labelsHidden()
-                .help("Top row as function keys, or as the media keys it sends without fn")
+                .help("Top row as function keys, or as the media keys it sends without fn. A rule on either one fires for both.")
         }
         .frame(minHeight: 28)
     }

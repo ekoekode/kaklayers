@@ -195,6 +195,34 @@ func testTapKeepsOriginalFunction() {
     expect(toAlone(manips(Project(bindings: [chord]))[0]) == nil)
 }
 
+func testTopRowMatchesFunctionAndMediaKeys() {
+    func froms(_ p: Project) -> [JSON] {
+        KarabinerCompiler.rules(for: p).flatMap { ($0["manipulators"] as? [JSON]) ?? [] }.compactMap { $0["from"] as? JSON }
+    }
+    func has(_ fs: [JSON], _ field: String, _ code: String) -> Bool { fs.contains { ($0[field] as? String) == code } }
+
+    // A binding on F1 also fires on the brightness key (all the families a keyboard might use).
+    let f1 = froms(Project(bindings: [KeyBinding(fromKeys: ["f1"], onPress: [.key(KeyCombo(key: "a"))])]))
+    expect(has(f1, "key_code", "f1") && has(f1, "consumer_key_code", "display_brightness_decrement"))
+    expect(has(f1, "apple_vendor_top_case_key_code", "brightness_down") && has(f1, "apple_vendor_keyboard_key_code", "brightness_down"))
+    // Mission Control is a vendor key; F3 covers it.
+    let f3 = froms(Project(bindings: [KeyBinding(fromKeys: ["f3"], onPress: [.key(KeyCombo(key: "a"))])]))
+    expect(has(f3, "apple_vendor_keyboard_key_code", "mission_control"))
+    // A binding made on the media key (Media row) also fires on plain F10.
+    let mute = froms(Project(bindings: [KeyBinding(fromKeys: ["mute"], onPress: [.key(KeyCombo(key: "a"))])]))
+    expect(has(mute, "consumer_key_code", "mute") && has(mute, "key_code", "f10"))
+    // Layer triggers and every role keep their modifiers on each variant.
+    let withMods = froms(Project(bindings: [KeyBinding(fromKeys: ["f8"], fromModifiers: ["shift"], onPress: [.key(KeyCombo(key: "a"))])]))
+    expect(withMods.count == 2 && withMods.allSatisfy { (($0["modifiers"] as? JSON)?["mandatory"] as? [String]) == ["shift"] })
+    let trig = froms(Project(layers: [Layer(id: "f", name: "F", colorHex: "#4F8EF7", triggerKeys: ["f12"])]))
+    expect(has(trig, "consumer_key_code", "volume_increment") && has(trig, "key_code", "f12"))
+    // Ordinary keys and chords are not expanded.
+    expect(froms(Project(bindings: [KeyBinding(fromKeys: ["a"], onPress: [.key(KeyCombo(key: "b"))])])).count == 1)
+    expect(froms(Project(bindings: [KeyBinding(fromKeys: ["f1", "f2"], onPress: [.key(KeyCombo(key: "b"))])])).count == 1)
+    // Every slot key the Media row draws is part of a slot.
+    for m in Keycodes.mediaRow { expect(!Keycodes.aliases(of: m.code).isEmpty) }
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -403,7 +431,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

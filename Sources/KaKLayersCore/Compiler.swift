@@ -21,11 +21,11 @@ public enum KarabinerCompiler {
             var manips: [JSON] = []
             let ctx = Context(project: project)
             // Toggle-off must win over the layer's own bindings.
-            if layer.mode == .toggle { manips.append(toggleOff(layer)) }
+            if layer.mode == .toggle { manips += expand([toggleOff(layer)], keys: layer.triggerKeys, modifiers: []) }
             for b in ordered(project.bindings.filter { $0.layerId == layer.id }) where b.enabled && !b.isEmpty {
                 manips += compile(binding: b, ctx: ctx)
             }
-            manips.append(triggerOn(layer))
+            manips += expand([triggerOn(layer)], keys: layer.triggerKeys, modifiers: [])
             rules.append(["description": rulePrefix + layer.name, "manipulators": manips])
         }
 
@@ -99,7 +99,24 @@ public enum KarabinerCompiler {
 
     // MARK: Bindings
 
+    /// A binding on a top-row key is written for the function key and for the media key(s) it sends without fn.
     static func compile(binding b: KeyBinding, ctx: Context) -> [JSON] {
+        expand(compileSingle(binding: b, ctx: ctx), keys: b.fromKeys, modifiers: b.fromModifiers)
+    }
+
+    /// Repeats `manipulators` once per alias of a single top-row key, changing only the `from`.
+    static func expand(_ manipulators: [JSON], keys: [String], modifiers: [String]) -> [JSON] {
+        guard keys.count == 1, let k = keys.first else { return manipulators }
+        let refs = Keycodes.aliases(of: k)
+        guard !refs.isEmpty else { return manipulators }
+        var out = manipulators
+        for r in refs {
+            out += manipulators.map { var m = $0; m["from"] = from(ref: r, modifiers: modifiers); return m }
+        }
+        return out
+    }
+
+    static func compileSingle(binding b: KeyBinding, ctx: Context) -> [JSON] {
         var conditions: [JSON] = []
         if let lid = b.layerId, let layer = ctx.project.layer(lid) {
             conditions.append(varCond(layer.variableName, 1, equals: true))
@@ -182,6 +199,15 @@ public enum KarabinerCompiler {
         } else if let k = keys.first {
             f = [Keycodes.codeField(k): k]
         }
+        return withModifiers(f, modifiers)
+    }
+
+    static func from(ref: Keycodes.KeyRef, modifiers: [String]) -> JSON {
+        withModifiers([ref.field: ref.code], modifiers)
+    }
+
+    private static func withModifiers(_ from: JSON, _ modifiers: [String]) -> JSON {
+        var f = from
         var mods: JSON = ["optional": ["any"]]
         if !modifiers.isEmpty { mods["mandatory"] = modifiers }
         f["modifiers"] = mods

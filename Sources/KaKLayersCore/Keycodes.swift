@@ -29,6 +29,44 @@ public enum Keycodes {
         return "key_code"
     }
 
+    /// One key as Karabiner names it: which JSON field it goes in, and its code.
+    public struct KeyRef: Hashable {
+        public let field: String
+        public let code: String
+        public init(_ field: String, _ code: String) { self.field = field; self.code = code }
+    }
+
+    /// Each top-row slot: the plain function key, plus every key a Mac keyboard may send for it without fn.
+    /// Karabiner treats these as different keys, and which one arrives depends on the keyboard model, so a rule
+    /// on one of them is written for all of them (names checked against the installed Karabiner-Elements).
+    static let fRowSlots: [[KeyRef]] = {
+        func f(_ n: Int) -> KeyRef { KeyRef("key_code", "f\(n)") }
+        func c(_ x: String) -> KeyRef { KeyRef("consumer_key_code", x) }
+        func kb(_ x: String) -> KeyRef { KeyRef("apple_vendor_keyboard_key_code", x) }
+        func top(_ x: String) -> KeyRef { KeyRef("apple_vendor_top_case_key_code", x) }
+        return [
+            [f(1), c("display_brightness_decrement"), top("brightness_down"), kb("brightness_down")],
+            [f(2), c("display_brightness_increment"), top("brightness_up"), kb("brightness_up")],
+            [f(3), kb("mission_control"), c("ac_desktop_show_all_windows")],
+            [f(4), kb("launchpad"), c("ac_desktop_show_all_applications"), kb("spotlight"), c("ac_search")],
+            [f(5), top("illumination_down"), c("dictation")],
+            [f(6), top("illumination_up")],
+            [f(7), c("rewind"), c("scan_previous_track")],
+            [f(8), c("play_or_pause")],
+            [f(9), c("fastforward"), c("fast_forward"), c("scan_next_track")],
+            [f(10), c("mute")],
+            [f(11), c("volume_decrement")],
+            [f(12), c("volume_increment")],
+        ]
+    }()
+
+    /// The other keys that share a top-row slot with `code` (empty if it is not in one).
+    public static func aliases(of code: String) -> [KeyRef] {
+        guard let slot = fRowSlots.first(where: { $0.contains { $0.code == code } }) else { return [] }
+        let primary = KeyRef(codeField(code), code)
+        return slot.filter { $0 != primary }
+    }
+
     /// What the Magic Keyboard F-row sends without fn (media mode), with a one-glyph legend.
     public static let mediaRow: [(f: String, code: String, label: String)] = [
         ("f1", "display_brightness_decrement", "🔅"), ("f2", "display_brightness_increment", "🔆"),
