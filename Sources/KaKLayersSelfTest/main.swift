@@ -259,8 +259,9 @@ func testMouseButtons() {
     expect(!ConflictChecker.check(Project(bindings: [click])).contains { $0.message.contains("EventViewer") })
     // The deck draws all five buttons and they are not keyboard keys.
     for kind in Keycodes.LayoutKind.allCases {
-        let codes = Set(Keycodes.layout(kind).map(\.code))
+        let codes = Set(Keycodes.layout(kind, pad: .mouse).map(\.code))
         expect(Keycodes.mouseButtons.isSubset(of: codes))
+        expect(!Set(Keycodes.layout(kind).map(\.code)).contains("button1"))
     }
     expect(Keycodes.byMac.values.allSatisfy { !Keycodes.isMouseButton($0.code) })
 }
@@ -336,15 +337,38 @@ func testExtendedKeysAndMediaRow() {
     expect(((m["from"] as! JSON)["apple_vendor_keyboard_key_code"] as? String) == "mission_control")
     expect(((m["to"] as! [JSON])[0]["apple_vendor_keyboard_key_code"] as? String) == "launchpad")
 }
+func testClustersFnRightCtrlArrowsAndPad() {
+    for kind in Keycodes.LayoutKind.allCases {
+        let keys = Dictionary(uniqueKeysWithValues: Keycodes.layout(kind).map { ($0.code, $0) })
+        // fn: top-left of the home / end / page-up block, and gone from the bottom-left.
+        expect(keys["fn"]?.x == 15.5 && keys["fn"]?.y == 1.5 && keys["home"]?.x == 16.5 && keys["page_up"]?.x == 17.5)
+        // Right control exists, and the bottom row spans the full main block.
+        expect(keys["right_control"] != nil)
+        let bottom = keys.values.filter { $0.y == 5.5 && $0.x < 15 }
+        expect(abs(bottom.map(\.w).reduce(0, +) - 15) < 0.001 && bottom.map(\.x).min() == 0)
+        // Arrows are their own inverted-T below the navigation keys, not part of the main block.
+        expect(keys["up_arrow"]?.x == 16.5 && keys["up_arrow"]?.y == 4.5)
+        expect(keys["left_arrow"]?.x == 15.5 && keys["down_arrow"]?.x == 16.5 && keys["right_arrow"]?.x == 17.5 && keys["left_arrow"]?.y == 5.5)
+        // The block on the right is the 10 key or the mouse, never both; F16–F19 stay either way.
+        let mouse = Set(Keycodes.layout(kind, pad: .mouse).map(\.code))
+        expect(keys["keypad_5"] != nil && !keys.keys.contains("button1"))
+        expect(!mouse.contains("keypad_5") && mouse.contains("button1") && mouse.contains("f19"))
+    }
+    let shapes = Keycodes.layout(.ansi, pad: .mouse).filter { Keycodes.isMouseButton($0.code) }.map(\.shape)
+    expect(Set(shapes) == [.mouseLeft, .mouseRight, .wheel, .side])
+}
+
 func testLayoutsDoNotOverlap() {
     for kind in Keycodes.LayoutKind.allCases {
-        let keys = Keycodes.layout(kind)
+      for pad in Keycodes.PadKind.allCases {
+        let keys = Keycodes.layout(kind, pad: pad)
         expect(Set(keys.map(\.code)).count == keys.count)
         for (i, a) in keys.enumerated() { for b in keys[(i+1)...] {
             let overlap = a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01
             if overlap { print("  overlap \(kind): \(a.code) / \(b.code)"); expect(false) }
         } }
         expect(keys.allSatisfy { $0.x + $0.w <= Keycodes.totalWidth + 0.01 && $0.y + $0.h <= Keycodes.totalHeight + 0.01 })
+      }
     }
 }
 
@@ -389,7 +413,7 @@ func testLayerReorder() {
 }
 func testLegendsFitAtMinimumUnit() {
     for kind in Keycodes.LayoutKind.allCases {
-        for k in Keycodes.layout(kind) {
+        for k in Keycodes.layout(kind) + Keycodes.layout(kind, pad: .mouse) {
             let w = TextFit.width(k.label, size: Metrics.legendFont, weight: 0.23)
             let budget = Metrics.legendBudget(unit: Metrics.minKeyUnit, widthUnits: k.w)
             if w > budget { print("  legend too wide [\(kind)] \(k.code) '\(k.label)' \(w) > \(budget)"); expect(false) }
@@ -473,7 +497,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

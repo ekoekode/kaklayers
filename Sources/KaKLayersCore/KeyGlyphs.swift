@@ -146,7 +146,7 @@ public enum KeyGlyphs {
         switch a {
         case .key(let c): return "Press " + combo(c)
         case .consumer(let k): return "Media: " + k.replacingOccurrences(of: "_", with: " ")
-        case .mouse(let b): return "Click " + Keycodes.label(b).lowercased() + " button"
+        case .mouse(let b): return "Click the " + Keycodes.mouseName(b).lowercased() + " button"
         case .shell(let s): return "Run: " + s
         case .delay(let ms): return "Wait \(ms) ms"
         case .setVariable(let n, let v): return "Set \(n) = \(v)"

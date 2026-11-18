@@ -63,6 +63,9 @@ final class AppState: ObservableObject {
     @Published var showJSON = false
     @Published var variantMods: [String] = []   // modifier variant being edited
     @Published var simMods: Set<String> = []
+    /// The block at the right of the keyboard: the 10 key, or a mouse.
+    @Published var mouseMode: Bool = UserDefaults.standard.bool(forKey: "mouseMode") { didSet { if persist { UserDefaults.standard.set(mouseMode, forKey: "mouseMode") } } }
+    var pad: Keycodes.PadKind { mouseMode ? .mouse : .tenKey }
     @Published var mediaRow: Bool = UserDefaults.standard.bool(forKey: "mediaRow") { didSet { if persist { UserDefaults.standard.set(mediaRow, forKey: "mediaRow") } } }
     @Published var layoutKind: Keycodes.LayoutKind = Keycodes.LayoutKind(rawValue: UserDefaults.standard.string(forKey: "layout") ?? "") ?? .ansi { didSet { if persist { UserDefaults.standard.set(layoutKind.rawValue, forKey: "layout") } } }
     @Published var simulate = false

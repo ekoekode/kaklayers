@@ -49,6 +49,44 @@ func modSymbol(_ m: String) -> String {
 }
 
 /// Wraps children onto new lines; never scrolls sideways and never clips.
+/// A rectangle with its own radius on each corner (RoundedRectangle only has one).
+struct CornerShape: Shape {
+    var tl: CGFloat, tr: CGFloat, br: CGFloat, bl: CGFloat
+    func path(in r: CGRect) -> Path {
+        let m = min(r.width, r.height) / 2
+        let tl = min(max(tl, 0.01), m), tr = min(max(tr, 0.01), m), br = min(max(br, 0.01), m), bl = min(max(bl, 0.01), m)
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX + tl, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX - tr, y: r.minY))
+        p.addArc(tangent1End: CGPoint(x: r.maxX, y: r.minY), tangent2End: CGPoint(x: r.maxX, y: r.minY + tr), radius: tr)
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - br))
+        p.addArc(tangent1End: CGPoint(x: r.maxX, y: r.maxY), tangent2End: CGPoint(x: r.maxX - br, y: r.maxY), radius: br)
+        p.addLine(to: CGPoint(x: r.minX + bl, y: r.maxY))
+        p.addArc(tangent1End: CGPoint(x: r.minX, y: r.maxY), tangent2End: CGPoint(x: r.minX, y: r.maxY - bl), radius: bl)
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + tl))
+        p.addArc(tangent1End: CGPoint(x: r.minX, y: r.minY), tangent2End: CGPoint(x: r.minX + tl, y: r.minY), radius: tl)
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// The outline of one key cap: rounded rectangle for keys, mouse-button shapes for the mouse.
+struct CapShape: Shape {
+    let kind: KeyShape
+    /// Outer corner radius of the left/right mouse buttons (the mouse body is built from this).
+    static func mouseOuterRadius(unit u: CGFloat) -> CGFloat { 0.62 * 1.45 * u }
+    func path(in r: CGRect) -> Path {
+        let c = Theme.cornerKey, s = min(r.width, r.height)
+        switch kind {
+        case .rect: return CornerShape(tl: c, tr: c, br: c, bl: c).path(in: r)
+        case .mouseLeft: return CornerShape(tl: s * 0.62, tr: c * 0.7, br: c, bl: c).path(in: r)
+        case .mouseRight: return CornerShape(tl: c * 0.7, tr: s * 0.62, br: c, bl: c).path(in: r)
+        case .wheel: return CornerShape(tl: s / 2, tr: s / 2, br: s / 2, bl: s / 2).path(in: r)
+        case .side: return CornerShape(tl: s * 0.38, tr: s * 0.2, br: s * 0.2, bl: s * 0.38).path(in: r)
+        }
+    }
+}
+
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8

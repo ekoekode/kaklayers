@@ -100,7 +100,7 @@ struct SelectionPanel: View {
                     .background(RoundedRectangle(cornerRadius: Theme.cornerKey).fill(Theme.window))
                     .overlay(RoundedRectangle(cornerRadius: Theme.cornerKey).stroke(Theme.hairline))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(app.editingChord.map { "Chord " + $0.map(Keycodes.label).joined(separator: " + ") } ?? (Keycodes.isMouseButton(key) ? "\(Keycodes.label(key)) button" : "Key \(Keycodes.label(key))"))
+                    Text(app.editingChord.map { "Chord " + $0.map(Keycodes.label).joined(separator: " + ") } ?? (Keycodes.isMouseButton(key) ? "\(Keycodes.mouseName(key)) button" : "Key \(Keycodes.label(key))"))
                         .font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 5) {
                         Image(systemName: idx.map { Theme.shape(forLayerIndex: $0) } ?? "circle.dashed").font(.system(size: 9))

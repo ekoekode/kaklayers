@@ -121,7 +121,7 @@ struct KeyPickerList: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Keycodes.all, id: \.code) { k in
+                ForEach(Keycodes.keyboardKeys, id: \.code) { k in
                     Button { pick(k.code) } label: {
                         HStack { Text(k.label).frame(width: 60, alignment: .leading); Text(k.code).foregroundStyle(.secondary).font(.system(size: 11)); Spacer()
                             if k.code == selected { Image(systemName: "checkmark") } }

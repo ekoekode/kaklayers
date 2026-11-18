@@ -1,10 +1,14 @@
 import Foundation
 
+/// How a key cap is outlined. Mouse buttons are not rectangles.
+public enum KeyShape: Hashable, Sendable { case rect, mouseLeft, mouseRight, wheel, side }
+
 public struct KeyDef: Hashable {
     public let code: String      // Karabiner key_code
     public let label: String
     public let mac: Int          // macOS virtual key code
     public let x: Double, y: Double, w: Double, h: Double
+    public var shape: KeyShape = .rect
 }
 
 public enum Keycodes {
@@ -102,6 +106,8 @@ public enum Keycodes {
     }
 
     public static let all: [KeyDef] = mainBlock + navCluster + numpad + mouseCluster
+    /// Everything that is a key (not a mouse button), for pickers.
+    public static var keyboardKeys: [KeyDef] { all.filter { !isMouseButton($0.code) } }
     public static let byCode: [String: KeyDef] = Dictionary((all + isoExtras + jisExtras + mediaDefs).map { ($0.code, $0) }, uniquingKeysWith: { a, _ in a })
 
     public enum LayoutKind: String, CaseIterable, Codable { case ansi = "ANSI", iso = "ISO", jis = "JIS" }
@@ -121,7 +127,7 @@ public enum Keycodes {
     /// JIS: no key left of 1, ¥ before delete, @ [ ] : on the right, extra _ key, 英数/かな around a short space bar.
     /// Labels follow the Apple JIS keyboard; key names are Karabiner's JIS names.
     static func jisLayout() -> [KeyDef] {
-        let fixed = all.filter { $0.y == 0 || $0.x >= 15.5 || ["left_arrow", "up_arrow", "down_arrow", "right_arrow"].contains($0.code) }
+        let fixed = all.filter { $0.y == 0 || $0.x >= 15.5 }
         var r = fixed
         r += row(1.5, [k("1","1",18), k("2","2",19), k("3","3",20), k("4","4",21), k("5","5",23), k("6","6",22), k("7","7",26),
                        k("8","8",28), k("9","9",25), k("0","0",29), k("hyphen","-",27), k("equal_sign","^",24),
@@ -136,9 +142,9 @@ public enum Keycodes {
         r += row(4.5, [k("left_shift","shift",56,2.25), k("z","Z",6), k("x","X",7), k("c","C",8), k("v","V",9), k("b","B",11),
                        k("n","N",45), k("m","M",46), k("comma",",",43), k("period",".",47), k("slash","/",44),
                        k("international1","_",94), k("right_shift","shift",60,1.75)])
-        r += row(5.5, [k("fn","fn",63), k("left_control","ctrl",59), k("left_option","opt",58), k("left_command","cmd",55,1.25),
-                       k("japanese_eisuu","英数",102), k("spacebar","space",49,4), k("japanese_kana","かな",104),
-                       k("right_command","cmd",54,1.25)])
+        r += row(5.5, [k("left_control","ctrl",59,1.25), k("left_option","opt",58,1.25), k("left_command","cmd",55,1.5),
+                       k("japanese_eisuu","英数",102,1.25), k("spacebar","space",49,4.5), k("japanese_kana","かな",104,1.25),
+                       k("right_command","cmd",54,1.5), k("right_option","opt",61,1.25), k("right_control","ctrl",62,1.25)])
         return r
     }
 
@@ -148,8 +154,15 @@ public enum Keycodes {
         mainBlock.first { $0.code == m.f }.map { KeyDef(code: m.code, label: m.label, mac: $0.mac, x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
     }
 
-    public static func layout(_ kind: LayoutKind, mediaRow media: Bool = false) -> [KeyDef] {
-        let keys = baseLayout(kind)
+    /// What fills the block at the right: the 10 key or a mouse.
+    public enum PadKind: String, CaseIterable, Codable { case tenKey = "10 key", mouse = "Mouse" }
+
+    public static func layout(_ kind: LayoutKind, mediaRow media: Bool = false, pad: PadKind = .tenKey) -> [KeyDef] {
+        let keys = baseLayout(kind).filter { k in
+            if isMouseButton(k.code) { return pad == .mouse }
+            if k.x >= 19 && k.y > 0 { return pad == .tenKey }      // the 10 key (F16–F19 on the top row stay)
+            return true
+        }
         guard media else { return keys }
         let swap = Dictionary(uniqueKeysWithValues: mediaRow.map { ($0.f, $0.code) })
         return keys.map { k in swap[k.code].flatMap { byCode[$0] } ?? k }
@@ -212,30 +225,36 @@ public enum Keycodes {
         r += row(4.5, [k("left_shift","shift",56,2.25), k("z","Z",6), k("x","X",7), k("c","C",8), k("v","V",9), k("b","B",11),
                        k("n","N",45), k("m","M",46), k("comma",",",43), k("period",".",47), k("slash","/",44),
                        k("right_shift","shift",60,2.75)])
-        r += row(5.5, [k("fn","fn",63), k("left_control","ctrl",59), k("left_option","opt",58), k("left_command","cmd",55,1.25),
-                       k("spacebar","space",49,5), k("right_command","cmd",54,1.25), k("right_option","opt",61),
-                       k("left_arrow","←",123), k("up_arrow","↑",126), k("down_arrow","↓",125), k("right_arrow","→",124)]
-            .map { $0 }) // arrows share the bottom row
+        r += row(5.5, [k("left_control","ctrl",59,1.25), k("left_option","opt",58,1.25), k("left_command","cmd",55,1.5),
+                       k("spacebar","space",49,7), k("right_command","cmd",54,1.5), k("right_option","opt",61,1.25),
+                       k("right_control","ctrl",62,1.25)])
         return r
     }()
 
     static let navCluster: [KeyDef] = {
         var r: [KeyDef] = []
         r += row(0, x0: 15.5, [k("f13","F13",105), k("f14","F14",107), k("f15","F15",113)])
-        r += row(1.5, x0: 15.5, [k("home","home",115), k("page_up","pg↑",116)])
+        r += row(1.5, x0: 15.5, [k("fn","fn",63), k("home","home",115), k("page_up","pg↑",116)])
         r += row(2.5, x0: 15.5, [k("delete_forward","del⌦",117), k("end","end",119), k("page_down","pg↓",121)])
+        // Arrow keys: their own inverted-T, below the navigation keys.
+        r += row(4.5, x0: 16.5, [k("up_arrow","↑",126)])
+        r += row(5.5, x0: 15.5, [k("left_arrow","←",123), k("down_arrow","↓",125), k("right_arrow","→",124)])
         return r
     }()
 
-    /// Mouse buttons sit in the empty block under the navigation cluster, on the same columns and rows as the keys around them.
+    /// A mouse drawn where the 10 key is: two buttons with the wheel between them, and the thumb buttons on the palm.
     /// Negative `mac` values keep them out of keyboard lookups.
     static let mouseCluster: [KeyDef] = [
-        KeyDef(code: "button1", label: "Left", mac: -1, x: 15.5, y: 3.5, w: 1, h: 1),
-        KeyDef(code: "button3", label: "Middle", mac: -3, x: 16.5, y: 3.5, w: 1, h: 1),
-        KeyDef(code: "button2", label: "Right", mac: -2, x: 17.5, y: 3.5, w: 1, h: 1),
-        KeyDef(code: "button4", label: "Back", mac: -4, x: 15.5, y: 4.5, w: 1, h: 1),
-        KeyDef(code: "button5", label: "Fwd", mac: -5, x: 16.5, y: 4.5, w: 1, h: 1),
+        KeyDef(code: "button1", label: "Left", mac: -1, x: 19.25, y: 1.5, w: 1.45, h: 2.5, shape: .mouseLeft),
+        KeyDef(code: "button3", label: "●", mac: -3, x: 20.7, y: 1.75, w: 0.6, h: 1.25, shape: .wheel),
+        KeyDef(code: "button2", label: "Right", mac: -2, x: 21.3, y: 1.5, w: 1.45, h: 2.5, shape: .mouseRight),
+        KeyDef(code: "button4", label: "Back", mac: -4, x: 19.55, y: 4.3, w: 0.85, h: 0.8, shape: .side),
+        KeyDef(code: "button5", label: "Fwd", mac: -5, x: 19.55, y: 5.2, w: 0.85, h: 0.8, shape: .side),
     ]
+
+    public static func mouseName(_ code: String) -> String {
+        switch code { case "button1": "Left"; case "button2": "Right"; case "button3": "Middle"; case "button4": "Back"; case "button5": "Forward"; default: code }
+    }
 
     static let numpad: [KeyDef] = {
         var r: [KeyDef] = []

@@ -241,6 +241,9 @@ struct LayerBar: View {
                 Picker("", selection: $app.mediaRow) { Text("F1–F12").tag(false); Text("Media").tag(true) }
                     .pickerStyle(.segmented).frame(width: 130).labelsHidden()
                     .help("Top row as function keys, or as the media keys it sends without fn. A rule on either one fires for both.")
+                Picker("", selection: $app.mouseMode) { Text("10 key").tag(false); Text("Mouse").tag(true) }
+                    .pickerStyle(.segmented).frame(width: 130).labelsHidden()
+                    .help("Show the 10 key, or a mouse so you can bind its buttons")
             }
             .fixedSize().frame(height: 28)
         }

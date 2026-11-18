@@ -17,13 +17,14 @@ final class DropModel: ObservableObject {
 struct DropHighlight: View {
     let code: String
     let tint: Color
+    let kind: KeyShape
     @ObservedObject var model: DropModel
     var body: some View {
         if model.target == code {
             ZStack {
-                RoundedRectangle(cornerRadius: Theme.cornerKey).fill(tint.opacity(0.28))
-                RoundedRectangle(cornerRadius: Theme.cornerKey + 2).stroke(tint.opacity(0.25), lineWidth: 8).padding(-3)
-                RoundedRectangle(cornerRadius: Theme.cornerKey).stroke(tint, lineWidth: 3)
+                CapShape(kind: kind).fill(tint.opacity(0.28))
+                CapShape(kind: kind).stroke(tint.opacity(0.25), lineWidth: 8)
+                CapShape(kind: kind).stroke(tint, lineWidth: 3)
             }
             .allowsHitTesting(false)
         }
@@ -83,7 +84,7 @@ extension AppState {
         let tintHex = layerObj?.colorHex
         let layerName = layerObj?.name ?? "Base"
 
-        return Keycodes.layout(layoutKind, mediaRow: mediaRow).map { k in
+        return Keycodes.layout(layoutKind, mediaRow: mediaRow, pad: pad).map { k in
             let r = Theme.rect(k, unit: unit)
             let b = single[k.code]
             let content = b.map { KeyGlyphs.content(for: $0, budget: Metrics.rowBudget(unit: Double(unit), widthUnits: k.w)) }
@@ -117,7 +118,7 @@ struct KeyboardDeck: View {
     var body: some View {
         let models = app.capModels(unit: unit)
         ZStack(alignment: .topLeading) {
-            MousePlate(unit: unit)
+            if app.mouseMode { MouseBody(unit: unit) }
             ForEach(models, id: \.key.code) { m in
                 let r = Theme.rect(m.key, unit: unit)
                 KeyCapView(m: m, unit: unit, app: app).equatable()
@@ -130,23 +131,26 @@ struct KeyboardDeck: View {
     }
 }
 
-/// A quiet plate behind the mouse buttons so they read as one group, with a caption in the free row below.
-struct MousePlate: View {
+/// The body of the mouse: a plate shaped like one, behind the buttons, with a caption on the palm.
+struct MouseBody: View {
     let unit: CGFloat
     var body: some View {
         let pad: CGFloat = 5
-        let x0 = (15.5 * unit).rounded() - pad, x1 = (18.5 * unit).rounded() - Theme.gap + pad
-        let y0 = (3.5 * unit).rounded() - pad, y1 = (5.5 * unit).rounded() - Theme.gap + pad
+        let x0 = (19.25 * unit).rounded() - pad, x1 = (22.75 * unit).rounded() - Theme.gap + pad
+        let y0 = (1.5 * unit).rounded() - pad, y1 = (6.5 * unit).rounded() - Theme.gap + pad
+        // The body's top corners are concentric with the buttons' outer corners (same radius plus the padding), so the buttons sit snugly inside.
+        let top = CapShape.mouseOuterRadius(unit: unit) + pad, bottom = 1.0 * unit + pad
+        let shape = CornerShape(tl: top, tr: top, br: bottom, bl: bottom)
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: Theme.cornerKey + 4).fill(Theme.plate)
-                .overlay(RoundedRectangle(cornerRadius: Theme.cornerKey + 4).stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
+            shape.fill(Theme.plate)
+                .overlay(shape.stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
                 .frame(width: x1 - x0, height: y1 - y0).offset(x: x0, y: y0)
             HStack(spacing: 5) {
                 Image(systemName: "computermouse").font(.system(size: 10, weight: .semibold))
                 Text("MOUSE").font(.system(size: 10, weight: .semibold)).tracking(0.8)
             }
             .foregroundStyle(.secondary)
-            .offset(x: x0 + 6, y: (5.5 * unit).rounded() + 6)
+            .frame(width: (2.15 * unit).rounded()).offset(x: (20.6 * unit).rounded(), y: (5.7 * unit).rounded())
         }
         .allowsHitTesting(false)
     }
@@ -158,7 +162,7 @@ struct HoverCard: View {
     @ObservedObject var hover: HoverModel
 
     var body: some View {
-        let keys = Keycodes.layout(app.layoutKind, mediaRow: app.mediaRow)
+        let keys = Keycodes.layout(app.layoutKind, mediaRow: app.mediaRow, pad: app.pad)
         if let hk = hover.key, let k = keys.first(where: { $0.code == hk }),
            let b = app.project.binding(layer: app.activeLayer, key: k.code), !b.isEmpty {
             let r = Theme.rect(k, unit: unit)
@@ -201,13 +205,13 @@ struct KeyCapView: View, Equatable {
         let cap = Int(max(0, (Metrics.legendBudget(unit: Double(unit), widthUnits: key.w) - Double(Theme.legendWidth(key.label))) / 10))
 
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: Theme.cornerKey).fill(Color.black.opacity(0.10)).offset(y: 1)   // cap edge, no blur
-            RoundedRectangle(cornerRadius: Theme.cornerKey).fill(Theme.cap)
-            if m.used { RoundedRectangle(cornerRadius: Theme.cornerKey).fill(tint.opacity(0.16)) }
-            if let triggerFill { RoundedRectangle(cornerRadius: Theme.cornerKey).fill(triggerFill.opacity(0.28)) }
+            CapShape(kind: key.shape).fill(Color.black.opacity(0.10)).offset(y: 1)   // cap edge, no blur
+            CapShape(kind: key.shape).fill(Theme.cap)
+            if m.used { CapShape(kind: key.shape).fill(tint.opacity(0.16)) }
+            if let triggerFill { CapShape(kind: key.shape).fill(triggerFill.opacity(0.28)) }
             if m.used {
                 VStack(spacing: 0) { Spacer(minLength: 0); Rectangle().fill(tint).frame(height: 3) }
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerKey))
+                    .clipShape(CapShape(kind: key.shape))
             }
             Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold))
                 .foregroundStyle(.primary.opacity(0.78)).fixedSize()
@@ -241,21 +245,21 @@ struct KeyCapView: View, Equatable {
             if m.selected {
                 // Glow in the active layer's color, drawn as soft stacked rings (no blur: blur is slow without a GPU).
                 ZStack {
-                    RoundedRectangle(cornerRadius: Theme.cornerKey + 4).stroke(tint.opacity(0.10), lineWidth: 9)
-                    RoundedRectangle(cornerRadius: Theme.cornerKey + 3).stroke(tint.opacity(0.18), lineWidth: 6)
-                    RoundedRectangle(cornerRadius: Theme.cornerKey + 2).stroke(tint.opacity(0.32), lineWidth: 3.5)
-                    RoundedRectangle(cornerRadius: Theme.cornerKey).stroke(tint, lineWidth: 1.5)
+                    CapShape(kind: key.shape).stroke(tint.opacity(0.10), lineWidth: 9)
+                    CapShape(kind: key.shape).stroke(tint.opacity(0.18), lineWidth: 6)
+                    CapShape(kind: key.shape).stroke(tint.opacity(0.32), lineWidth: 3.5)
+                    CapShape(kind: key.shape).stroke(tint, lineWidth: 1.5)
                 }
             } else {
-                RoundedRectangle(cornerRadius: Theme.cornerKey).stroke(triggerFill ?? Theme.hairline.opacity(0.7), lineWidth: triggerFill == nil ? 1 : 2)
+                CapShape(kind: key.shape).stroke(triggerFill ?? Theme.hairline.opacity(0.7), lineWidth: triggerFill == nil ? 1 : 2)
             }
         }
-        .contentShape(RoundedRectangle(cornerRadius: Theme.cornerKey))
+        .contentShape(CapShape(kind: key.shape))
         .onHover { inside in
             if inside { app.hover.enter(key.code) } else { app.hover.leave(key.code) }
         }
         .onTapGesture { app.tapKey(key.code) }
-        .overlay(DropHighlight(code: key.code, tint: m.isBase ? Color.accentColor : tint, model: app.drop))
+        .overlay(DropHighlight(code: key.code, tint: m.isBase ? Color.accentColor : tint, kind: key.shape, model: app.drop))
         .modifier(KeyDragDrop(app: app, code: key.code))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(m.accessibility)
