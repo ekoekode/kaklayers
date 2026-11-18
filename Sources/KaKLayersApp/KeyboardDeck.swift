@@ -18,13 +18,14 @@ struct DropHighlight: View {
     let code: String
     let tint: Color
     let kind: KeyShape
+    let unit: CGFloat
     @ObservedObject var model: DropModel
     var body: some View {
         if model.target == code {
             ZStack {
-                CapShape(kind: kind).fill(tint.opacity(0.28))
-                CapShape(kind: kind).stroke(tint.opacity(0.25), lineWidth: 8)
-                CapShape(kind: kind).stroke(tint, lineWidth: 3)
+                CapShape(kind: kind, unit: unit).fill(tint.opacity(0.28))
+                CapShape(kind: kind, unit: unit).stroke(tint.opacity(0.25), lineWidth: 8)
+                CapShape(kind: kind, unit: unit).stroke(tint, lineWidth: 3)
             }
             .allowsHitTesting(false)
         }
@@ -135,11 +136,11 @@ struct KeyboardDeck: View {
 struct MouseBody: View {
     let unit: CGFloat
     var body: some View {
-        let pad: CGFloat = 5
+        let pad = CapShape.mouseInset
         let x0 = (19.25 * unit).rounded() - pad, x1 = (22.75 * unit).rounded() - Theme.gap + pad
         let y0 = (1.5 * unit).rounded() - pad, y1 = (6.5 * unit).rounded() - Theme.gap + pad
-        // The body's top corners are concentric with the buttons' outer corners (same radius plus the padding), so the buttons sit snugly inside.
-        let top = CapShape.mouseOuterRadius(unit: unit) + pad, bottom = 1.0 * unit + pad
+        // The body's top corners are concentric with the buttons' outer corners (the buttons use this radius minus the inset).
+        let top = CapShape.mouseBodyRadius(unit: unit), bottom = 1.0 * unit + pad
         let shape = CornerShape(tl: top, tr: top, br: bottom, bl: bottom)
         ZStack(alignment: .topLeading) {
             shape.fill(Theme.plate)
@@ -150,7 +151,7 @@ struct MouseBody: View {
                 Text("MOUSE").font(.system(size: 10, weight: .semibold)).tracking(0.8)
             }
             .foregroundStyle(.secondary)
-            .frame(width: (2.15 * unit).rounded()).offset(x: (20.6 * unit).rounded(), y: (5.7 * unit).rounded())
+            .frame(width: (1.9 * unit).rounded()).offset(x: (20.85 * unit).rounded(), y: (5.45 * unit).rounded())
         }
         .allowsHitTesting(false)
     }
@@ -198,6 +199,35 @@ struct KeyCapView: View, Equatable {
 
     static func == (a: KeyCapView, b: KeyCapView) -> Bool { a.m == b.m && a.unit == b.unit }
 
+    private var bottomLegend: Bool { m.key.shape == .mouseLeft || m.key.shape == .mouseRight }
+
+    private func badgesView(limit: Int) -> some View {
+        HStack(spacing: 1) {
+            ForEach(Array(m.badges.prefix(limit)), id: \.self) { badge in
+                switch badge {
+                case .shape(let sym, let hex): Image(systemName: sym).font(.system(size: 7)).foregroundStyle(Color(hex: hex))
+                case .text(let t): Text(t).font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary).fixedSize()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var rowsView: some View {
+        if let content = m.content {
+            let tint = m.isBase ? Theme.baseTint : (m.tintHex.map(Color.init(hex:)) ?? Theme.baseTint)
+            VStack(alignment: bottomLegend ? .center : .leading, spacing: 1) {
+                ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 2) {
+                        Text(row.role.icon).font(.system(size: 8)).foregroundStyle(.secondary)
+                            .frame(width: CGFloat(Metrics.roleIconWidth), alignment: .leading).fixedSize()
+                        Text(row.text).font(.system(size: CGFloat(Metrics.rowFont), weight: .medium))
+                            .foregroundStyle(m.isBase ? Color.primary : tint).fixedSize()
+                    }
+                }
+            }
+        }
+    }
+
     var body: some View {
         let key = m.key
         let tint = m.isBase ? Theme.baseTint : (m.tintHex.map(Color.init(hex:)) ?? Theme.baseTint)
@@ -205,39 +235,33 @@ struct KeyCapView: View, Equatable {
         let cap = Int(max(0, (Metrics.legendBudget(unit: Double(unit), widthUnits: key.w) - Double(Theme.legendWidth(key.label))) / 10))
 
         ZStack(alignment: .topLeading) {
-            CapShape(kind: key.shape).fill(Color.black.opacity(0.10)).offset(y: 1)   // cap edge, no blur
-            CapShape(kind: key.shape).fill(Theme.cap)
-            if m.used { CapShape(kind: key.shape).fill(tint.opacity(0.16)) }
-            if let triggerFill { CapShape(kind: key.shape).fill(triggerFill.opacity(0.28)) }
+            CapShape(kind: key.shape, unit: unit).fill(Color.black.opacity(0.10)).offset(y: 1)   // cap edge, no blur
+            CapShape(kind: key.shape, unit: unit).fill(Theme.cap)
+            if m.used { CapShape(kind: key.shape, unit: unit).fill(tint.opacity(0.16)) }
+            if let triggerFill { CapShape(kind: key.shape, unit: unit).fill(triggerFill.opacity(0.28)) }
             if m.used {
                 VStack(spacing: 0) { Spacer(minLength: 0); Rectangle().fill(tint).frame(height: 3) }
-                    .clipShape(CapShape(kind: key.shape))
+                    .clipShape(CapShape(kind: key.shape, unit: unit))
             }
-            Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.78)).fixedSize()
-                .padding(.leading, CGFloat(Metrics.capPadding)).padding(.top, 5)
-            HStack(spacing: 1) {
-                ForEach(Array(m.badges.prefix(cap)), id: \.self) { badge in
-                    switch badge {
-                    case .shape(let sym, let hex): Image(systemName: sym).font(.system(size: 7)).foregroundStyle(Color(hex: hex))
-                    case .text(let t): Text(t).font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary).fixedSize()
+            if bottomLegend {
+                // Mouse buttons: the printed name and anything bound sit at the bottom, clear of the curved top.
+                VStack(spacing: 3) {
+                    rowsView
+                    HStack(spacing: 4) {
+                        Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold)).foregroundStyle(.primary.opacity(0.78)).fixedSize()
+                        badgesView(limit: 3)
                     }
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, CGFloat(Metrics.capPadding)).padding(.top, 6)
-            if let content = m.content {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
-                        HStack(spacing: 2) {
-                            Text(row.role.icon).font(.system(size: 8)).foregroundStyle(.secondary)
-                                .frame(width: CGFloat(Metrics.roleIconWidth), alignment: .leading).fixedSize()
-                            Text(row.text).font(.system(size: CGFloat(Metrics.rowFont), weight: .medium))
-                                .foregroundStyle(m.isBase ? Color.primary : tint).fixedSize()
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                .padding(.leading, CGFloat(Metrics.capPadding)).padding(.bottom, 7)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 7)
+            } else {
+                Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.78)).fixedSize()
+                    .padding(.leading, CGFloat(Metrics.capPadding)).padding(.top, 5)
+                badgesView(limit: cap)
+                    .frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, CGFloat(Metrics.capPadding)).padding(.top, 6)
+                rowsView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(.leading, CGFloat(Metrics.capPadding)).padding(.bottom, 7)
             }
         }
         .frame(width: m.size.width, height: m.size.height)
@@ -245,21 +269,21 @@ struct KeyCapView: View, Equatable {
             if m.selected {
                 // Glow in the active layer's color, drawn as soft stacked rings (no blur: blur is slow without a GPU).
                 ZStack {
-                    CapShape(kind: key.shape).stroke(tint.opacity(0.10), lineWidth: 9)
-                    CapShape(kind: key.shape).stroke(tint.opacity(0.18), lineWidth: 6)
-                    CapShape(kind: key.shape).stroke(tint.opacity(0.32), lineWidth: 3.5)
-                    CapShape(kind: key.shape).stroke(tint, lineWidth: 1.5)
+                    CapShape(kind: key.shape, unit: unit).stroke(tint.opacity(0.10), lineWidth: 9)
+                    CapShape(kind: key.shape, unit: unit).stroke(tint.opacity(0.18), lineWidth: 6)
+                    CapShape(kind: key.shape, unit: unit).stroke(tint.opacity(0.32), lineWidth: 3.5)
+                    CapShape(kind: key.shape, unit: unit).stroke(tint, lineWidth: 1.5)
                 }
             } else {
-                CapShape(kind: key.shape).stroke(triggerFill ?? Theme.hairline.opacity(0.7), lineWidth: triggerFill == nil ? 1 : 2)
+                CapShape(kind: key.shape, unit: unit).stroke(triggerFill ?? Theme.hairline.opacity(0.7), lineWidth: triggerFill == nil ? 1 : 2)
             }
         }
-        .contentShape(CapShape(kind: key.shape))
+        .contentShape(CapShape(kind: key.shape, unit: unit))
         .onHover { inside in
             if inside { app.hover.enter(key.code) } else { app.hover.leave(key.code) }
         }
         .onTapGesture { app.tapKey(key.code) }
-        .overlay(DropHighlight(code: key.code, tint: m.isBase ? Color.accentColor : tint, kind: key.shape, model: app.drop))
+        .overlay(DropHighlight(code: key.code, tint: m.isBase ? Color.accentColor : tint, kind: key.shape, unit: unit, model: app.drop))
         .modifier(KeyDragDrop(app: app, code: key.code))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(m.accessibility)

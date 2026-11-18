@@ -30,6 +30,8 @@ enum Snapshot {
         bs.append(KeyBinding(fromKeys: ["f13"], onPress: [.consumer("mission_control")]))
         bs.append(KeyBinding(fromKeys: ["button4"], onPress: [k("open_bracket", ["command"])]))
         bs.append(KeyBinding(fromKeys: ["button5"], onPress: [k("close_bracket", ["command"])]))
+        bs.append(KeyBinding(layerId: "nav", fromKeys: ["button1"], onPress: [k("return_or_enter")], onHold: [k("escape")]))
+        bs.append(KeyBinding(layerId: "nav", fromKeys: ["button2"], onPress: [k("tab", ["control"])]))
         bs.append(KeyBinding(fromKeys: ["button3"], onTap: [k("tab", ["control"])], onHold: [.consumer("mission_control")]))
         bs.append(KeyBinding(fromKeys: ["mute"], onPress: [.consumer("play_or_pause")]))
         bs.append(KeyBinding(fromKeys: ["right_command"], onTap: [k("return_or_enter")]))

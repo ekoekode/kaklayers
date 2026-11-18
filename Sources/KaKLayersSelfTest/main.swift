@@ -355,7 +355,13 @@ func testClustersFnRightCtrlArrowsAndPad() {
         expect(!mouse.contains("keypad_5") && mouse.contains("button1") && mouse.contains("f19"))
     }
     let shapes = Keycodes.layout(.ansi, pad: .mouse).filter { Keycodes.isMouseButton($0.code) }.map(\.shape)
-    expect(Set(shapes) == [.mouseLeft, .mouseRight, .wheel, .side])
+    expect(Set(shapes) == [.mouseLeft, .mouseRight, .wheel, .rect])
+    // Back and Forward are ordinary key shapes, directly under the left button and right-aligned with it.
+    let m = Dictionary(uniqueKeysWithValues: Keycodes.layout(.ansi, pad: .mouse).filter { Keycodes.isMouseButton($0.code) }.map { ($0.code, $0) })
+    let left = m["button1"]!, back = m["button4"]!, fwd = m["button5"]!
+    expect(back.shape == .rect && fwd.shape == .rect)
+    expect(abs((back.x + back.w) - (left.x + left.w)) < 0.001 && abs((fwd.x + fwd.w) - (left.x + left.w)) < 0.001)
+    expect(abs(back.y - (left.y + left.h)) < 0.001 && abs(fwd.y - (back.y + back.h)) < 0.001)
 }
 
 func testLayoutsDoNotOverlap() {

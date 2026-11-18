@@ -50,11 +50,13 @@ func modSymbol(_ m: String) -> String {
 
 /// Wraps children onto new lines; never scrolls sideways and never clips.
 /// A rectangle with its own radius on each corner (RoundedRectangle only has one).
+/// Like CSS, radii that would overlap along a side are scaled down together, so a corner can be as round as the side allows.
 struct CornerShape: Shape {
     var tl: CGFloat, tr: CGFloat, br: CGFloat, bl: CGFloat
     func path(in r: CGRect) -> Path {
-        let m = min(r.width, r.height) / 2
-        let tl = min(max(tl, 0.01), m), tr = min(max(tr, 0.01), m), br = min(max(br, 0.01), m), bl = min(max(bl, 0.01), m)
+        var tl = max(tl, 0.01), tr = max(tr, 0.01), br = max(br, 0.01), bl = max(bl, 0.01)
+        let k = min(1, r.width / (tl + tr), r.width / (bl + br), r.height / (tl + bl), r.height / (tr + br))
+        tl *= k; tr *= k; br *= k; bl *= k
         var p = Path()
         p.move(to: CGPoint(x: r.minX + tl, y: r.minY))
         p.addLine(to: CGPoint(x: r.maxX - tr, y: r.minY))
@@ -70,19 +72,21 @@ struct CornerShape: Shape {
     }
 }
 
-/// The outline of one key cap: rounded rectangle for keys, mouse-button shapes for the mouse.
+/// The outline of one key cap: a rounded rectangle for keys, mouse-button shapes for the mouse.
+/// The mouse buttons' outer corners are the body's corner radius minus the inset, so they stay concentric with the outline.
 struct CapShape: Shape {
     let kind: KeyShape
-    /// Outer corner radius of the left/right mouse buttons (the mouse body is built from this).
-    static func mouseOuterRadius(unit u: CGFloat) -> CGFloat { 0.62 * 1.45 * u }
+    var unit: CGFloat = 60
+    static let mouseInset: CGFloat = 5
+    static func mouseBodyRadius(unit u: CGFloat) -> CGFloat { 1.4 * u }
     func path(in r: CGRect) -> Path {
         let c = Theme.cornerKey, s = min(r.width, r.height)
+        let outer = Self.mouseBodyRadius(unit: unit) - Self.mouseInset
         switch kind {
         case .rect: return CornerShape(tl: c, tr: c, br: c, bl: c).path(in: r)
-        case .mouseLeft: return CornerShape(tl: s * 0.62, tr: c * 0.7, br: c, bl: c).path(in: r)
-        case .mouseRight: return CornerShape(tl: c * 0.7, tr: s * 0.62, br: c, bl: c).path(in: r)
+        case .mouseLeft: return CornerShape(tl: outer, tr: c * 0.7, br: c, bl: c).path(in: r)
+        case .mouseRight: return CornerShape(tl: c * 0.7, tr: outer, br: c, bl: c).path(in: r)
         case .wheel: return CornerShape(tl: s / 2, tr: s / 2, br: s / 2, bl: s / 2).path(in: r)
-        case .side: return CornerShape(tl: s * 0.38, tr: s * 0.2, br: s * 0.2, bl: s * 0.38).path(in: r)
         }
     }
 }

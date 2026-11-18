@@ -1,7 +1,7 @@
 import Foundation
 
 /// How a key cap is outlined. Mouse buttons are not rectangles.
-public enum KeyShape: Hashable, Sendable { case rect, mouseLeft, mouseRight, wheel, side }
+public enum KeyShape: Hashable, Sendable { case rect, mouseLeft, mouseRight, wheel }
 
 public struct KeyDef: Hashable {
     public let code: String      // Karabiner key_code
@@ -189,7 +189,10 @@ public enum Keycodes {
     }
     public static let byMac: [Int: KeyDef] = Dictionary(all.filter { $0.mac >= 0 }.map { ($0.mac, $0) }, uniquingKeysWith: { a, _ in a })
 
-    public static func label(_ code: String) -> String { byCode[code]?.label ?? code }
+    public static func label(_ code: String) -> String {
+        if isMouseButton(code) { return mouseName(code) }       // the wheel button has no printed legend
+        return byCode[code]?.label ?? code
+    }
 
     // MARK: Layout (units of one key; main block starts x=0, nav x=15.5, numpad x=19)
 
@@ -242,14 +245,14 @@ public enum Keycodes {
         return r
     }()
 
-    /// A mouse drawn where the 10 key is: two buttons with the wheel between them, and the thumb buttons on the palm.
+    /// A mouse drawn where the 10 key is: two buttons with the wheel between them, and the thumb buttons as ordinary keys right under the left button, right-aligned with it.
     /// Negative `mac` values keep them out of keyboard lookups.
     static let mouseCluster: [KeyDef] = [
         KeyDef(code: "button1", label: "Left", mac: -1, x: 19.25, y: 1.5, w: 1.45, h: 2.5, shape: .mouseLeft),
-        KeyDef(code: "button3", label: "●", mac: -3, x: 20.7, y: 1.75, w: 0.6, h: 1.25, shape: .wheel),
+        KeyDef(code: "button3", label: "", mac: -3, x: 20.7, y: 1.75, w: 0.6, h: 1.25, shape: .wheel),
         KeyDef(code: "button2", label: "Right", mac: -2, x: 21.3, y: 1.5, w: 1.45, h: 2.5, shape: .mouseRight),
-        KeyDef(code: "button4", label: "Back", mac: -4, x: 19.55, y: 4.3, w: 0.85, h: 0.8, shape: .side),
-        KeyDef(code: "button5", label: "Fwd", mac: -5, x: 19.55, y: 5.2, w: 0.85, h: 0.8, shape: .side),
+        KeyDef(code: "button4", label: "Back", mac: -4, x: 19.7, y: 4.0, w: 1, h: 1),
+        KeyDef(code: "button5", label: "Fwd", mac: -5, x: 19.7, y: 5.0, w: 1, h: 1),
     ]
 
     public static func mouseName(_ code: String) -> String {
