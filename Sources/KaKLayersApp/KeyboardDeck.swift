@@ -132,7 +132,7 @@ struct KeyboardDeck: View {
     }
 }
 
-/// The mouse: a rounded group box (labelled at its top left) around a mouse-shaped body, behind the buttons.
+/// The mouse: a rounded outline (no fill, labelled at its top left) around a mouse-shaped body, behind the buttons.
 struct MouseBody: View {
     let unit: CGFloat
     var body: some View {
@@ -146,8 +146,8 @@ struct MouseBody: View {
         let r = CapShape.mouseBodyRadius(unit: unit)
         let body = CornerShape(tl: r, tr: r, br: r, bl: r)
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: Theme.cornerKey + 4).fill(Theme.plate)
-                .overlay(RoundedRectangle(cornerRadius: Theme.cornerKey + 4).stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
+            // The group box is a line only, no fill.
+            RoundedRectangle(cornerRadius: Theme.cornerKey + 4).stroke(Theme.hairline.opacity(0.9), lineWidth: 1)
                 .frame(width: gx1 - gx0, height: gy1 - gy0).offset(x: gx0, y: gy0)
             body.fill(Theme.plate)
                 .overlay(body.stroke(Theme.hairline.opacity(0.55), lineWidth: 1))
