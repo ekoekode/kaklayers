@@ -356,11 +356,12 @@ func testClustersFnRightCtrlArrowsAndPad() {
     }
     let shapes = Keycodes.layout(.ansi, pad: .mouse).filter { Keycodes.isMouseButton($0.code) }.map(\.shape)
     expect(Set(shapes) == [.mouseLeft, .mouseRight, .wheel, .rect])
-    // Back and Forward are ordinary key shapes, directly under the left button and right-aligned with it.
+    // Back and Forward are small ordinary keys, directly under the left button and left-aligned with it.
     let m = Dictionary(uniqueKeysWithValues: Keycodes.layout(.ansi, pad: .mouse).filter { Keycodes.isMouseButton($0.code) }.map { ($0.code, $0) })
     let left = m["button1"]!, back = m["button4"]!, fwd = m["button5"]!
     expect(back.shape == .rect && fwd.shape == .rect)
-    expect(abs((back.x + back.w) - (left.x + left.w)) < 0.001 && abs((fwd.x + fwd.w) - (left.x + left.w)) < 0.001)
+    expect(abs(back.x - left.x) < 0.001 && abs(fwd.x - left.x) < 0.001)
+    expect(back.w < 1 && back.h < 1 && fwd.w < 1 && fwd.h < 1)
     expect(abs(back.y - (left.y + left.h)) < 0.001 && abs(fwd.y - (back.y + back.h)) < 0.001)
 }
 

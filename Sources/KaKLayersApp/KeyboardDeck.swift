@@ -215,7 +215,7 @@ struct KeyCapView: View, Equatable {
     @ViewBuilder private var rowsView: some View {
         if let content = m.content {
             let tint = m.isBase ? Theme.baseTint : (m.tintHex.map(Color.init(hex:)) ?? Theme.baseTint)
-            VStack(alignment: bottomLegend ? .center : .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
                     HStack(spacing: 2) {
                         Text(row.role.icon).font(.system(size: 8)).foregroundStyle(.secondary)
@@ -245,14 +245,15 @@ struct KeyCapView: View, Equatable {
             }
             if bottomLegend {
                 // Mouse buttons: the printed name and anything bound sit at the bottom, clear of the curved top.
-                VStack(spacing: 3) {
+                VStack(alignment: .leading, spacing: 3) {
                     rowsView
                     HStack(spacing: 4) {
                         Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold)).foregroundStyle(.primary.opacity(0.78)).fixedSize()
                         badgesView(limit: 3)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 7)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(.leading, CGFloat(Metrics.capPadding)).padding(.bottom, 7)
             } else {
                 Text(key.label).font(.system(size: CGFloat(Metrics.legendFont), weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.78)).fixedSize()
