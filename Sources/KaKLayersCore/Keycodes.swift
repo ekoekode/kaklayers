@@ -255,6 +255,21 @@ public enum Keycodes {
         KeyDef(code: "button5", label: "Fwd", mac: -5, x: 19.25, y: 4.8, w: 0.85, h: 0.8),
     ]
 
+    /// The full name for lists and pickers: the button number first, then what it does.
+    public static func mouseButtonTitle(_ code: String) -> String {
+        let n = code.dropFirst("button".count)
+        let what: String
+        switch code {
+        case "button1": what = "Left Click"
+        case "button2": what = "Right Click"
+        case "button3": what = "Middle Click"
+        case "button4": what = "Back"
+        case "button5": what = "Forward"
+        default: return "Mouse Button \(n)"
+        }
+        return "Mouse Button \(n) (\(what))"
+    }
+
     public static func mouseName(_ code: String) -> String {
         switch code { case "button1": "Left"; case "button2": "Right"; case "button3": "Middle"; case "button4": "Back"; case "button5": "Forward"; default: code }
     }

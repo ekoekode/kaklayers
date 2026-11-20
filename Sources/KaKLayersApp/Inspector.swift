@@ -116,7 +116,7 @@ struct ActionRow: View {
             }.fixedSize()
         case .mouse(let b):
             Picker("Mouse", selection: SwiftUI.Binding(get: { b }, set: { action = .mouse($0) })) {
-                ForEach(["button1", "button2", "button3", "button4", "button5"], id: \.self) { Text($0).tag($0) }
+                ForEach(["button1", "button2", "button3", "button4", "button5"], id: \.self) { Text(Keycodes.mouseButtonTitle($0)).tag($0) }
             }.fixedSize()
         case .stickyModifier(let m):
             Picker("Sticky", selection: SwiftUI.Binding(get: { m }, set: { action = .stickyModifier($0) })) {

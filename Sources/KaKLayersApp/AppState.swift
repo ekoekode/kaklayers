@@ -199,8 +199,19 @@ final class AppState: ObservableObject {
     }
 
     private var typeMonitor: Any?
+    private var mouseMonitor: Any?
+
     /// Press a physical key to select it (unless a text field is being edited).
     func installTypeToSelect() {
+        // Simulate also listens to the real mouse buttons (middle, back, forward, and right-click), like it does for keys on screen.
+        if mouseMonitor == nil {
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown, .rightMouseDown]) { [weak self] ev in
+                guard let self, self.simulate, self.recording == nil else { return ev }
+                let code: String? = ev.type == .rightMouseDown ? "button2" : (2...4).contains(ev.buttonNumber) ? "button\(ev.buttonNumber + 1)" : nil
+                if let code { self.tapKey(code) }
+                return ev            // the click still does its normal job (menus, the context menu on layer chips)
+            }
+        }
         guard typeMonitor == nil else { return }
         typeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] ev in
             guard let self, self.recording == nil, !self.simulate else { return ev }

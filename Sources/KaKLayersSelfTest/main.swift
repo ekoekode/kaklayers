@@ -257,6 +257,12 @@ func testMouseButtons() {
     expect(!ConflictChecker.check(Project(layers: [layer])).contains { $0.severity == .warning })
     expect(ConflictChecker.check(Project(bindings: [b])).contains { $0.message.contains("EventViewer") })
     expect(!ConflictChecker.check(Project(bindings: [click])).contains { $0.message.contains("EventViewer") })
+    // Lists show the number and the function: "Mouse Button 1 (Left Click)".
+    expect(Keycodes.mouseButtonTitle("button1") == "Mouse Button 1 (Left Click)")
+    expect(Keycodes.mouseButtonTitle("button2") == "Mouse Button 2 (Right Click)")
+    expect(Keycodes.mouseButtonTitle("button3") == "Mouse Button 3 (Middle Click)")
+    expect(Keycodes.mouseButtonTitle("button4") == "Mouse Button 4 (Back)" && Keycodes.mouseButtonTitle("button5") == "Mouse Button 5 (Forward)")
+    expect(Keycodes.mouseButtonTitle("button8") == "Mouse Button 8")
     // The deck draws all five buttons and they are not keyboard keys.
     for kind in Keycodes.LayoutKind.allCases {
         let codes = Set(Keycodes.layout(kind, pad: .mouse).map(\.code))
