@@ -97,6 +97,8 @@ public enum KeyGlyphs {
         case .keyUp(let c): return unique(["↥" + glyph(c.key), "↥"])
         case .consumer(let k): return [consumer[k] ?? "♫"]
         case .mouse(let b): return unique(["🖱" + glyph(b), "🖱"])
+        case .mouseDown(let b): return unique(["🖱↧" + glyph(b), "🖱↧", "🖱"])
+        case .mouseUp(let b): return unique(["🖱↥" + glyph(b), "🖱↥", "🖱"])
         case .shell: return ["$"]
         case .delay(let ms): return unique(["⏱" + (ms >= 1000 ? "\(ms / 1000)s" : "\(ms)"), "⏱"])
         case .setVariable: return ["="]
@@ -151,6 +153,8 @@ public enum KeyGlyphs {
         case .keyUp(let c): return "Release " + glyph(c.key)
         case .consumer(let k): return "Media: " + k.replacingOccurrences(of: "_", with: " ")
         case .mouse(let b): return "Click the " + Keycodes.mouseName(b).lowercased() + " button"
+        case .mouseDown(let b): return "Hold down the " + Keycodes.mouseName(b).lowercased() + " button"
+        case .mouseUp(let b): return "Release the " + Keycodes.mouseName(b).lowercased() + " button"
         case .shell(let s): return "Run: " + s
         case .delay(let ms): return "Wait \(ms) ms"
         case .setVariable(let n, let v): return "Set \(n) = \(v)"

@@ -341,6 +341,12 @@ final class AppState: ObservableObject {
         if selectedKey == key { variantMods = [] }
         status = "Reset \(Keycodes.label(key)) in \(activeLayerName). ⌘Z undoes it."
     }
+    /// Deletes one saved combo (a modifier variant) of a key; the others stay.
+    func clearVariant(_ key: String, mods: [String]) {
+        project.bindings.removeAll { $0.layerId == activeLayer && $0.fromKeys == [key] && Set($0.fromModifiers) == Set(mods) }
+        if Set(variantMods) == Set(mods) { syncVariant() }
+        status = "Deleted the \(mods.isEmpty ? "plain" : mods.map(modSymbol).joined()) combo on \(Keycodes.label(key))."
+    }
     func clearBinding(_ key: String) {
         project.bindings.removeAll { $0.layerId == activeLayer && $0.fromKeys == keysFor(key) && Set($0.fromModifiers) == Set(variantMods) }
     }

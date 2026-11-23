@@ -341,6 +341,49 @@ func testPastingNothingResetsAKey() {
     expect(p.bindings.contains { $0.fromKeys == ["h", "j"] } && p.keySettings(layer: "b", key: "h").count == 1)
 }
 
+func testComboTabs() {
+    func b(_ mods: [String], layer: String? = "a", key: String = "h", empty: Bool = false) -> KeyBinding {
+        KeyBinding(layerId: layer, fromKeys: [key], fromModifiers: mods, onPress: empty ? [] : [.key(KeyCombo(key: "x"))])
+    }
+    // Nothing saved: just plain, so the tabs stay hidden.
+    expect(Project().combos(layer: "a", key: "h") == [[]])
+    // Plain first, then combos with the fewest modifiers, each in ⌃ ⌥ ⇧ ⌘ order whatever order they were saved in.
+    let p = Project(bindings: [b(["shift", "command"]), b(["command"]), b(["option"]), b(["command", "control", "shift"]),
+                               b(["shift"], layer: "other"), b(["shift"], key: "j"), b(["control"], empty: true)])
+    expect(p.combos(layer: "a", key: "h") == [[], ["option"], ["command"], ["shift", "command"], ["control", "shift", "command"]])
+    // The combo being set up shows too, once, even when it equals a saved one in a different order.
+    expect(p.combos(layer: "a", key: "h", including: ["control"]).contains(["control"]))
+    expect(p.combos(layer: "a", key: "h", including: ["command", "shift"]).count == 5)
+    expect(Project().combos(layer: "a", key: "h", including: ["option"]) == [[], ["option"]])
+}
+
+func testMouseDownAndUp() throws {
+    func ev(_ a: [Action]) -> [JSON] { KarabinerCompiler.events(a) }
+    // A click is still one event.
+    expect(ev([.mouse("button1")]).count == 1 && ev([.mouse("button1")])[0]["hold_down_milliseconds"] == nil)
+    // Down, delay, up: one button held for that long (click and hold, then release).
+    let held = ev([.mouseDown("button1"), .delay(400), .mouseUp("button1")])
+    expect(held.count == 1 && held[0]["pointing_button"] as? String == "button1" && held[0]["hold_down_milliseconds"] as? Int == 400)
+    // Left down at the end: the last event, which Karabiner keeps down while the trigger is held.
+    let tail = ev([.key(KeyCombo(key: "a")), .mouseDown("button2")])
+    expect(tail.count == 2 && tail[1]["pointing_button"] as? String == "button2" && tail[1]["hold_down_milliseconds"] == nil)
+    // A held modifier rides on the button.
+    let shifted = ev([.keyDown(KeyCombo(key: "left_shift")), .mouseDown("button1"), .delay(100), .mouseUp("button1"), .keyUp(KeyCombo(key: "left_shift"))])
+    expect(shifted.count == 1 && (shifted[0]["modifiers"] as? [String]) == ["left_shift"] && shifted[0]["hold_down_milliseconds"] as? Int == 100)
+    // Other steps between cannot overlap: hold through the delays, then the rest.
+    let overlap = ev([.mouseDown("button1"), .delay(50), .key(KeyCombo(key: "a")), .mouseUp("button1")])
+    expect(overlap.count == 2 && overlap[0]["hold_down_milliseconds"] as? Int == 50 && overlap[1]["key_code"] as? String == "a")
+    // The checks.
+    expect(KarabinerCompiler.analyze([.mouseDown("button1"), .key(KeyCombo(key: "a")), .mouseUp("button1")]).count == 1)
+    expect(KarabinerCompiler.analyze([.mouseUp("button1")]).count == 1)
+    expect(KarabinerCompiler.analyze([.mouseDown("button1"), .delay(200), .mouseUp("button1")]).isEmpty)
+    // Saved, and readable.
+    let acts: [Action] = [.mouseDown("button3"), .mouseUp("button3")]
+    expect(try JSONDecoder().decode([Action].self, from: JSONEncoder().encode(acts)) == acts)
+    expect(KeyGlyphs.words(acts[0]) == "Hold down the middle button" && KeyGlyphs.words(acts[1]) == "Release the middle button")
+    expect(KeyGlyphs.candidates(acts[0]).first == "🖱↧M" && KeyGlyphs.candidates(acts[1]).last == "🖱")
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -579,7 +622,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("keyDownUp", testKeyDownAndKeyUp), ("openOnVariant", testKeyOpensOnTheVariantItsCapShows), ("pasteNothing", testPastingNothingResetsAKey), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("keyDownUp", testKeyDownAndKeyUp), ("openOnVariant", testKeyOpensOnTheVariantItsCapShows), ("comboTabs", testComboTabs), ("mouseDownUp", testMouseDownAndUp), ("pasteNothing", testPastingNothingResetsAKey), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

@@ -268,9 +268,20 @@ public enum KarabinerCompiler {
             case .key(let c):
                 out.append(keyEvent(c, held: held, hold: 0))
             case .mouse(let b):
-                var e: JSON = ["pointing_button": b]
-                if !held.isEmpty { e["modifiers"] = held }
-                out.append(e)
+                out.append(mouseEvent(b, held: held, hold: 0))
+            case .mouseDown(let b):
+                // Same rules as a key: down, delays, up is one held click; a button left down at the end stays down while the trigger is held.
+                if let j = matchingMouseUp(for: b, after: i, in: actions) {
+                    let between = actions[(i + 1)..<j]
+                    let delays = between.reduce(0) { sum, x in if case .delay(let ms) = x { return sum + ms } else { return sum } }
+                    out.append(mouseEvent(b, held: held, hold: delays))
+                    consumed.insert(j)
+                    for k in (i + 1)..<j { if case .delay = actions[k] { consumed.insert(k) } }
+                } else {
+                    out.append(mouseEvent(b, held: held, hold: 0))
+                }
+            case .mouseUp:
+                break                                // consumed by its mouse down (or reported by `analyze` if it has none)
             default:
                 out.append(event(a))
             }
@@ -281,6 +292,17 @@ public enum KarabinerCompiler {
 
     static func matchingKeyUp(for key: String, after i: Int, in actions: [Action]) -> Int? {
         actions.indices.dropFirst(i + 1).first { if case .keyUp(let u) = actions[$0], u.key == key { return true } else { return false } }
+    }
+
+    static func matchingMouseUp(for button: String, after i: Int, in actions: [Action]) -> Int? {
+        actions.indices.dropFirst(i + 1).first { if case .mouseUp(let u) = actions[$0], u == button { return true } else { return false } }
+    }
+
+    static func mouseEvent(_ b: String, held: [String], hold: Int) -> JSON {
+        var e: JSON = ["pointing_button": b]
+        if !held.isEmpty { e["modifiers"] = held }
+        if hold > 0 { e["hold_down_milliseconds"] = hold }
+        return e
     }
 
     static func keyEvent(_ c: KeyCombo, held: [String], hold: Int) -> JSON {
@@ -303,6 +325,14 @@ public enum KarabinerCompiler {
                         out.append("Key down on \(Keycodes.label(c.key)) is only held through delays: Karabiner cannot keep a regular key down while other steps press keys. Modifier keys (⌘ ⌃ ⌥ ⇧) can be held across steps.")
                     }
                 }
+            case .mouseDown(let b):
+                if let j = matchingMouseUp(for: b, after: i, in: actions),
+                   !actions[(i + 1)..<j].allSatisfy({ if case .delay = $0 { return true } else { return false } }) {
+                    out.append("Mouse button down on \(Keycodes.mouseName(b)) is only held through delays: Karabiner cannot keep a button down while other steps press keys or buttons.")
+                }
+            case .mouseUp(let b):
+                let hasDown = actions[..<i].contains { if case .mouseDown(let d) = $0, d == b { return true } else { return false } }
+                if !hasDown { out.append("Mouse button up on \(Keycodes.mouseName(b)) has no mouse button down before it, so it does nothing.") }
             case .keyUp(let c):
                 let hasDown = actions[..<i].contains { if case .keyDown(let d) = $0, d.key == c.key { return true } else { return false } }
                 if !hasDown { out.append("Key up on \(Keycodes.label(c.key)) has no key down before it, so it does nothing.") }
@@ -322,6 +352,8 @@ public enum KarabinerCompiler {
         case .keyUp: return ["key_code": "vk_none"]                  // handled in events(); a no-op if it ever reaches here
         case .consumer(let k): return [Keycodes.codeField(k): k]
         case .mouse(let b): return ["pointing_button": b]
+        case .mouseDown(let b): return ["pointing_button": b]
+        case .mouseUp: return ["key_code": "vk_none"]               // handled in events(); a no-op if it ever reaches here
         case .shell(let s): return ["shell_command": s]
         case .delay(let ms): return ["key_code": "vk_none", "hold_down_milliseconds": ms]
         case .setVariable(let n, let v): return setVar(n, v)

@@ -17,7 +17,9 @@ public enum Action: Codable, Hashable {
     case keyDown(KeyCombo)           // hold a key down (until a matching key up, or while the trigger is held)
     case keyUp(KeyCombo)             // release a key that was held down
     case consumer(String)            // consumer_key_code, e.g. "play_or_pause"
-    case mouse(String)               // pointing_button, e.g. "button1"
+    case mouse(String)               // mouse click (down and up): pointing_button, e.g. "button1"
+    case mouseDown(String)           // hold a mouse button down
+    case mouseUp(String)             // release it
     case shell(String)               // shell_command
     case delay(Int)                  // milliseconds
     case setVariable(name: String, value: Int)
@@ -167,6 +169,21 @@ public struct Project: Codable, Hashable {
         let vs = bindings.filter { $0.layerId == layer && $0.fromKeys == [key] && !$0.isEmpty }
         if vs.isEmpty || vs.contains(where: { $0.fromModifiers.isEmpty }) { return [] }
         return vs[0].fromModifiers
+    }
+
+    /// Every modifier combo set on a key in a layer, for the combo tabs: plain first, then the saved combos (fewest modifiers first),
+    /// plus the one being edited if it is not saved yet. Each combo is in a fixed order (⌃ ⌥ ⇧ ⌘) with no duplicates.
+    public func combos(layer: String?, key: String, including current: [String] = []) -> [[String]] {
+        let order = ["control", "option", "shift", "command"]
+        func norm(_ m: [String]) -> [String] { order.filter(m.contains) }
+        var seen: [[String]] = [[]]
+        for m in (bindings.filter { $0.layerId == layer && $0.fromKeys == [key] && !$0.isEmpty }.map(\.fromModifiers) + [current]).map(norm) where !seen.contains(m) {
+            seen.append(m)
+        }
+        let rest = seen.dropFirst().sorted { a, b in
+            a.count != b.count ? a.count < b.count : a.map { order.firstIndex(of: $0) ?? 0 }.lexicographicallyPrecedes(b.map { order.firstIndex(of: $0) ?? 0 })
+        }
+        return [[]] + rest
     }
 
     public func variants(layer: String?, key: String) -> [KeyBinding] {

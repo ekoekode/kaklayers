@@ -176,6 +176,9 @@ struct WorkflowPanel: View {
         let b = app.current(key)
         let count: (CapRole) -> Int = { b?[keyPath: $0.keyPath].count ?? 0 }
         VStack(alignment: .leading, spacing: 12) {
+            ComboTabs(key: key)
+            // The combo picker sits above; the tabs and steps for the chosen combo are grouped inside an outline.
+            VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 4) {
                 ForEach(CapRole.allCases, id: \.self) { role in
                     let on = app.dockTab == role
@@ -195,6 +198,46 @@ struct WorkflowPanel: View {
             }
             Text(app.dockTab.help).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             ActionRail(actions: app.slot(key, app.dockTab.keyPath), listId: "\(key)-\(app.dockTab)")
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard - 2).stroke(Theme.hairline, lineWidth: 1))
+        }
+    }
+}
+
+/// One tab per modifier combo saved on the key (plain, ⌘, ⌘⇧ …), so each saved setup is one click away.
+/// Shown once the key has a combo besides plain, or while a new combo is being set up.
+struct ComboTabs: View {
+    @EnvironmentObject var app: AppState
+    let key: String
+
+    static func label(_ mods: [String]) -> String { mods.isEmpty ? "Plain" : mods.map(modSymbol).joined() }
+
+    var body: some View {
+        let combos = app.project.combos(layer: app.activeLayer, key: key, including: app.variantMods)
+        let saved = Set(app.project.variants(layer: app.activeLayer, key: key).filter { !$0.isEmpty }.map { Set($0.fromModifiers) })
+        if app.editingChord == nil, combos.count > 1 {
+            FlowLayout(spacing: 6, lineSpacing: 6) {
+                Text("Combo").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(height: 24)
+                ForEach(combos, id: \.self) { mods in
+                    let on = Set(app.variantMods) == Set(mods)
+                    let isSaved = saved.contains(Set(mods))
+                    Button { app.variantMods = mods } label: {
+                        Text(Self.label(mods)).font(.system(size: 12, weight: on ? .semibold : .regular)).fixedSize()
+                            .foregroundStyle(isSaved || on ? Color.primary : Color.secondary)
+                            .padding(.horizontal, 10).frame(height: 24)
+                            .background(Capsule().fill(on ? app.layerTint.opacity(0.18) : Color.primary.opacity(isSaved ? 0.07 : 0)))
+                            .overlay(Capsule().stroke(on ? app.layerTint : (isSaved ? Color.clear : Theme.hairline),
+                                                      style: StrokeStyle(lineWidth: on ? 1.5 : 1, dash: isSaved ? [] : [3, 2])))
+                    }
+                    .buttonStyle(.plain)
+                    .help(isSaved ? "Show what happens with \(mods.isEmpty ? "no modifiers" : Self.label(mods)) held" : "Not saved yet: add steps to keep it")
+                    .contextMenu {
+                        Button("Delete this combo", role: .destructive) { app.clearVariant(key, mods: mods) }.disabled(!isSaved)
+                    }
+                }
+            }
         }
     }
 }
@@ -219,9 +262,7 @@ struct ActionRail: View {
             HStack(spacing: 6) {
                 if !actions.isEmpty { Image(systemName: "arrow.right").font(.system(size: 10)).foregroundStyle(.tertiary) }
                 Menu {
-                    Button("Key press (down and up)") { actions.append(.key(KeyCombo(key: "a"))) }
-                    Button("Key down (hold)") { actions.append(.keyDown(KeyCombo(key: "left_shift"))) }
-                    Button("Key up (release)") { actions.append(.keyUp(KeyCombo(key: "left_shift"))) }
+                    Button("Keyboard key") { actions.append(.key(KeyCombo(key: "a"))) }
                     Button("Delay") { actions.append(.delay(100)) }
                     Button("Shell command or script") { actions.append(.shell("")) }
                     Button("Open app") { actions.append(.openApp("com.apple.Terminal")) }

@@ -52,16 +52,21 @@ struct ActionRow: View {
         switch kind { case 1: .keyDown(c); case 2: .keyUp(KeyCombo(key: c.key)); default: .key(c) }
     }
 
+    /// Mouse steps come in the same three kinds: click (down and up), down (hold) and up (release).
+    static func mouseKind(_ a: Action) -> Int { switch a { case .mouseDown: 1; case .mouseUp: 2; default: 0 } }
+    static func makeMouse(_ kind: Int, _ b: String) -> Action { switch kind { case 1: .mouseDown(b); case 2: .mouseUp(b); default: .mouse(b) } }
+
     var body: some View {
         switch action {
         case .key(let c), .keyDown(let c), .keyUp(let c):
             let kind = Self.keyKind(action)
             VStack(alignment: .leading, spacing: 4) {
+                // A check mark on what the step does: down and up together, down only (hold), or up only (release).
                 Picker("", selection: SwiftUI.Binding(get: { kind }, set: { action = Self.makeKey($0, c) })) {
-                    Text("Press").tag(0); Text("Down").tag(1); Text("Up").tag(2)
+                    Text("Down and up").tag(0); Text("Down").tag(1); Text("Up").tag(2)
                 }
-                .pickerStyle(.segmented).controlSize(.small).labelsHidden().frame(width: 150)
-                .help("Press is down and up. Down holds the key; Up releases it, so you can put delays and other steps between.")
+                .pickerStyle(.menu).controlSize(.small).labelsHidden().frame(width: 150)
+                .help("Down and up presses the key. Down holds it; Up releases it, so you can put delays and other steps between.")
                 if kind != 2 {
                     HStack(spacing: 4) {
                         Image(systemName: "keyboard").font(.system(size: 10)).foregroundStyle(.secondary)
@@ -114,10 +119,19 @@ struct ActionRow: View {
             Picker("Media", selection: SwiftUI.Binding(get: { k }, set: { action = .consumer($0) })) {
                 ForEach(Keycodes.mediaKeys, id: \.self) { Text($0.replacingOccurrences(of: "_", with: " ")).tag($0) }
             }.fixedSize()
-        case .mouse(let b):
-            Picker("Mouse", selection: SwiftUI.Binding(get: { b }, set: { action = .mouse($0) })) {
-                ForEach(["button1", "button2", "button3", "button4", "button5"], id: \.self) { Text(Keycodes.mouseButtonTitle($0)).tag($0) }
-            }.fixedSize()
+        case .mouse(let b), .mouseDown(let b), .mouseUp(let b):
+            let kind = Self.mouseKind(action)
+            VStack(alignment: .leading, spacing: 4) {
+                Picker("", selection: SwiftUI.Binding(get: { kind }, set: { action = Self.makeMouse($0, b) })) {
+                    Text("Down and up").tag(0); Text("Down").tag(1); Text("Up").tag(2)
+                }
+                .pickerStyle(.menu).controlSize(.small).labelsHidden().frame(width: 150)
+                .help("Down and up clicks the button. Down holds it; Up releases it, so you can put delays between.")
+                Picker("Mouse", selection: SwiftUI.Binding(get: { b }, set: { action = Self.makeMouse(kind, $0) })) {
+                    ForEach(["button1", "button2", "button3", "button4", "button5"], id: \.self) { Text(Keycodes.mouseButtonTitle($0)).tag($0) }
+                }.fixedSize().labelsHidden()
+            }
+            .fixedSize()
         case .stickyModifier(let m):
             Picker("Sticky", selection: SwiftUI.Binding(get: { m }, set: { action = .stickyModifier($0) })) {
                 ForEach(["left_shift", "left_control", "left_option", "left_command"], id: \.self) { Text($0.replacingOccurrences(of: "_", with: " ")).tag($0) }
