@@ -384,6 +384,21 @@ func testMouseDownAndUp() throws {
     expect(KeyGlyphs.candidates(acts[0]).first == "🖱↧M" && KeyGlyphs.candidates(acts[1]).last == "🖱")
 }
 
+func testChordsByLayer() {
+    func chord(_ layer: String?, _ keys: [String], empty: Bool = false) -> KeyBinding {
+        KeyBinding(layerId: layer, fromKeys: keys, onPress: empty ? [] : [.key(KeyCombo(key: "x"))])
+    }
+    let p = Project(layers: [Layer(id: "a", name: "A", colorHex: "#4F8EF7"), Layer(id: "b", name: "B", colorHex: "#E5484D")],
+                    bindings: [chord("b", ["j", "k"]), chord(nil, ["a", "s"]), chord("a", ["h", "j"]), chord("a", ["d", "f"]),
+                               chord("a", ["q", "w"], empty: true),                                    // no actions: not listed
+                               KeyBinding(layerId: "a", fromKeys: ["h"], onPress: [.key(KeyCombo(key: "x"))])])   // a single key: not a chord
+    let g = p.chordsByLayer(activeFirst: "b")
+    expect(g.map(\.layer) == ["b", nil, "a"])                                   // active layer first, then Base, then the rest
+    expect(g[2].chords.map(\.fromKeys) == [["h", "j"], ["d", "f"]])
+    expect(p.chordsByLayer(activeFirst: nil).map(\.layer) == [nil, "a", "b"])
+    expect(Project().chordsByLayer(activeFirst: nil).isEmpty)
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -622,7 +637,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("keyDownUp", testKeyDownAndKeyUp), ("openOnVariant", testKeyOpensOnTheVariantItsCapShows), ("comboTabs", testComboTabs), ("mouseDownUp", testMouseDownAndUp), ("pasteNothing", testPastingNothingResetsAKey), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("keyDownUp", testKeyDownAndKeyUp), ("openOnVariant", testKeyOpensOnTheVariantItsCapShows), ("comboTabs", testComboTabs), ("mouseDownUp", testMouseDownAndUp), ("chordsByLayer", testChordsByLayer), ("pasteNothing", testPastingNothingResetsAKey), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

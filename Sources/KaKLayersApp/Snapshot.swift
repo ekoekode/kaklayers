@@ -29,6 +29,10 @@ enum Snapshot {
                        ("7", "keypad_7"), ("8", "keypad_8"), ("9", "keypad_9")] {
             bs.append(KeyBinding(layerId: "num", fromKeys: [f], onPress: [k(t)]))
         }
+        bs.append(KeyBinding(layerId: "nav", fromKeys: ["h", "j"], onPress: [k("escape")]))
+        bs.append(KeyBinding(layerId: "nav", fromKeys: ["j", "k"], onPress: [k("return_or_enter")]))
+        bs.append(KeyBinding(layerId: "hyper", fromKeys: ["s", "d"], onPress: [k("tab", ["command"])]))
+        bs.append(KeyBinding(fromKeys: ["a", "s"], onPress: [k("grave_accent_and_tilde")]))
         bs.append(KeyBinding(fromKeys: ["f13"], onPress: [.consumer("mission_control")]))
         bs.append(KeyBinding(fromKeys: ["button4"], onPress: [k("open_bracket", ["command"])]))
         bs.append(KeyBinding(fromKeys: ["button5"], onPress: [k("close_bracket", ["command"])]))

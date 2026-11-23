@@ -85,7 +85,94 @@ extension CapRole {
 
 // MARK: Selection
 
+/// The Selection card: the key's own settings, or a tab listing every chord that has been set.
 struct SelectionPanel: View {
+    @EnvironmentObject var app: AppState
+    let key: String
+
+    var body: some View {
+        let total = app.project.bindings.filter { $0.fromKeys.count > 1 && !$0.isEmpty }.count
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 4) {
+                tab("Key", .key, badge: 0)
+                tab("Chords", .chords, badge: total)
+            }
+            switch app.selectionTab {
+            case .key: KeySelectionContent(key: key)
+            case .chords: ChordList()
+            }
+        }
+    }
+
+    private func tab(_ title: String, _ value: AppState.SelectionTab, badge: Int) -> some View {
+        let on = app.selectionTab == value
+        return Button { app.selectionTab = value } label: {
+            HStack(spacing: 4) {
+                Text(title).font(.system(size: 12, weight: on ? .semibold : .regular)).fixedSize()
+                if badge > 0 {
+                    Text("\(badge)").font(.system(size: 10, weight: .bold)).foregroundStyle(on ? Color.white : Color.secondary)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Capsule().fill(on ? app.layerTint : Color.primary.opacity(0.1)))
+                }
+            }
+            .padding(.horizontal, 10).frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 8).fill(on ? app.layerTint.opacity(0.16) : Color.clear))
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Every chord that has been set, by layer. Click one to edit it; the circled x (or right-click, Clear) removes it.
+struct ChordList: View {
+    @EnvironmentObject var app: AppState
+
+    var body: some View {
+        let groups = app.project.chordsByLayer(activeFirst: app.activeLayer)
+        VStack(alignment: .leading, spacing: 12) {
+            if groups.isEmpty {
+                Text("No chords yet. Select a key and use “New chord with …” on the Key tab, then hold the keys together.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(groups, id: \.layer) { group in
+                VStack(alignment: .leading, spacing: 4) {
+                    let layer = app.project.layer(group.layer)
+                    let idx = app.project.layers.firstIndex { $0.id == group.layer }
+                    HStack(spacing: 5) {
+                        Image(systemName: idx.map { Theme.shape(forLayerIndex: $0) } ?? "circle.dashed").font(.system(size: 9))
+                            .foregroundStyle(layer.map { Color(hex: $0.colorHex) } ?? .secondary)
+                        Text(layer?.name ?? "Base").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                    }
+                    ForEach(group.chords) { b in row(b) }
+                }
+            }
+        }
+    }
+
+    private func row(_ b: KeyBinding) -> some View {
+        let on = app.editingChord == b.fromKeys && app.activeLayer == b.layerId && Set(app.variantMods) == Set(b.fromModifiers)
+        let name = (b.fromModifiers.isEmpty ? "" : ComboTabs.label(b.fromModifiers) + " ") + b.fromKeys.map(Keycodes.label).joined(separator: " + ")
+        let summary = KeyGlyphs.content(for: b, budget: 120).rows.first.map { $0.role.icon + " " + $0.text } ?? ""
+        return HStack(spacing: 8) {
+            Text(name).font(.system(size: 12, weight: .semibold)).fixedSize()
+            Text(summary).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+            Spacer(minLength: 4)
+            Button { app.clearChord(b) } label: {
+                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain).help("Clear this chord")
+        }
+        .padding(.horizontal, 10).frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: 8).fill(on ? app.layerTint.opacity(0.16) : Color.primary.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? app.layerTint : Color.clear, lineWidth: 1.5))
+        .contentShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture { app.openChord(b) }
+        .contextMenu {
+            Button("Edit") { app.openChord(b) }
+            Button("Clear chord", role: .destructive) { app.clearChord(b) }
+        }
+    }
+}
+
+struct KeySelectionContent: View {
     @EnvironmentObject var app: AppState
     let key: String
 

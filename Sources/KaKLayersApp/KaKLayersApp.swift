@@ -18,6 +18,7 @@ struct KaKLayersApp: App {
             if let m = arg("--mods") { a.variantMods = m.split(separator: ",").map(String.init) }
             if CommandLine.arguments.contains("--media") { a.mediaRow = true }
             if CommandLine.arguments.contains("--mouse") { a.mouseMode = true }
+            if CommandLine.arguments.contains("--chords") { a.selectionTab = .chords }
             if CommandLine.arguments.contains("--all-layers") { a.showAllLayers = true }
             return a }()
         : AppState()

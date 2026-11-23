@@ -186,6 +186,18 @@ public struct Project: Codable, Hashable {
         return [[]] + rest
     }
 
+    /// Every chord (two or more keys pressed together) that has actions, grouped by layer: the given layer first, then Base, then the
+    /// other layers in project order. Groups with no chords are left out.
+    public func chordsByLayer(activeFirst active: String?) -> [(layer: String?, chords: [KeyBinding])] {
+        var order: [String?] = [active]
+        if active != nil { order.append(nil) }
+        order += layers.map { Optional($0.id) }.filter { $0 != active }
+        return order.compactMap { id in
+            let cs = bindings.filter { $0.layerId == id && $0.fromKeys.count > 1 && !$0.isEmpty }
+            return cs.isEmpty ? nil : (layer: id, chords: cs)
+        }
+    }
+
     public func variants(layer: String?, key: String) -> [KeyBinding] {
         bindings.filter { $0.layerId == layer && $0.fromKeys == [key] }
     }

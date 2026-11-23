@@ -55,6 +55,8 @@ final class AppState: ObservableObject {
         if v != variantMods { variantMods = v }
     }
     /// When set, the inspector edits this chord (keys pressed together) instead of the single selected key.
+    enum SelectionTab { case key, chords }
+    @Published var selectionTab: SelectionTab = .key       // the Selection card shows the key, or a list of every chord
     @Published var editingChord: [String]? = nil
     func keysFor(_ key: String) -> [String] { editingChord ?? [key] }
     @Published var showAllLayers = false
@@ -346,6 +348,19 @@ final class AppState: ObservableObject {
         project.bindings.removeAll { $0.layerId == activeLayer && $0.fromKeys == [key] && Set($0.fromModifiers) == Set(mods) }
         if Set(variantMods) == Set(mods) { syncVariant() }
         status = "Deleted the \(mods.isEmpty ? "plain" : mods.map(modSymbol).joined()) combo on \(Keycodes.label(key))."
+    }
+    /// Opens a chord from the list: its layer, its keys and its modifier variant, ready to edit in the workflow.
+    func openChord(_ b: KeyBinding) {
+        if activeLayer != b.layerId { activeLayer = b.layerId }
+        if selectedKey != b.fromKeys.first { selectedKey = b.fromKeys.first }
+        variantMods = b.fromModifiers
+        editingChord = b.fromKeys
+    }
+    func clearChord(_ b: KeyBinding) {
+        let name = b.fromKeys.map(Keycodes.label).joined(separator: " + ")
+        project.bindings.removeAll { $0.id == b.id }
+        if editingChord == b.fromKeys && activeLayer == b.layerId { editingChord = nil }
+        status = "Cleared the chord \(name). ⌘Z undoes it."
     }
     func clearBinding(_ key: String) {
         project.bindings.removeAll { $0.layerId == activeLayer && $0.fromKeys == keysFor(key) && Set($0.fromModifiers) == Set(variantMods) }
