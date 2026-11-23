@@ -128,6 +128,10 @@ struct SelectionPanel: View {
             if app.current(key) != nil {
                 Button("Clear this binding", role: .destructive) { app.clearBinding(key) }.controlSize(.small)
             }
+            let all = app.project.variants(layer: app.activeLayer, key: key).filter { !$0.isEmpty }
+            if all.count > 1 {
+                Button("Reset key (all \(all.count) variants)", role: .destructive) { app.resetKey(key) }.controlSize(.small)
+            }
         }
     }
 }

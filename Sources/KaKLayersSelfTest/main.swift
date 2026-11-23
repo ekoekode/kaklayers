@@ -315,6 +315,32 @@ func testKeyDownAndKeyUp() throws {
     expect(KeyGlyphs.words(acts[0]) == "Hold down ⇧" && KeyGlyphs.candidates(acts[0]).last == "↧" && KeyGlyphs.candidates(acts[1]).first == "↥⇧")
 }
 
+func testKeyOpensOnTheVariantItsCapShows() {
+    func b(_ mods: [String], _ layer: String? = "a") -> KeyBinding { KeyBinding(layerId: layer, fromKeys: ["h"], fromModifiers: mods, onPress: [.mouse("button3")]) }
+    expect(Project().defaultVariantMods(layer: "a", key: "h") == [])
+    // Only an ⌥ variant: the key opens on ⌥ (so the workflow shows it and Clear works), not on an empty plain binding.
+    expect(Project(bindings: [b(["option"])]).defaultVariantMods(layer: "a", key: "h") == ["option"])
+    // A plain binding wins over variants.
+    expect(Project(bindings: [b(["option"]), b([])]).defaultVariantMods(layer: "a", key: "h") == [])
+    // Other layers do not count; neither do empty bindings.
+    expect(Project(bindings: [b(["option"], "other")]).defaultVariantMods(layer: "a", key: "h") == [])
+    expect(Project(bindings: [KeyBinding(layerId: "a", fromKeys: ["h"], fromModifiers: ["option"])]).defaultVariantMods(layer: "a", key: "h") == [])
+}
+
+func testPastingNothingResetsAKey() {
+    var p = Project(bindings: [
+        KeyBinding(layerId: "a", fromKeys: ["h"], onPress: [.mouse("button3")]),
+        KeyBinding(layerId: "a", fromKeys: ["h"], fromModifiers: ["option"], onPress: [.mouse("button2")]),
+        KeyBinding(layerId: "a", fromKeys: ["h", "j"], onPress: [.mouse("button1")]),        // a chord, not part of the key's own settings
+        KeyBinding(layerId: "b", fromKeys: ["h"], onPress: [.mouse("button1")]),             // another layer
+    ])
+    let nothing = p.keySettings(layer: "a", key: "x")                                       // an empty key
+    expect(nothing.isEmpty)
+    p.paste(nothing, layer: "a", key: "h")                                                   // drag or paste an empty key onto H
+    expect(p.keySettings(layer: "a", key: "h").isEmpty)                                      // H is reset in that layer, all variants
+    expect(p.bindings.contains { $0.fromKeys == ["h", "j"] } && p.keySettings(layer: "b", key: "h").count == 1)
+}
+
 func testPresetsCompileAndAreClean() {
     for preset in Presets.all {
         var p = Project(); p.add(preset)
@@ -553,7 +579,7 @@ let cases: [(String, () throws -> Void)] = [
   ("toggleLayer", t.testToggleLayerHasOffManipulatorFirst), ("delayAndShellChain", t.testDelayAndShellChain),
   ("holdReleaseAppCondition", t.testHoldReleaseAndAppCondition), ("doubleTap", t.testDoubleTapProducesTwoManipulators),
   ("keyCodesUnique", t.testKeyCodesAreUnique), ("applyMergesAndKeepsUserRules", t.testApplyMergesAndKeepsUserRules),
-  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("keyDownUp", testKeyDownAndKeyUp), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
+  ("presets", testPresetsCompileAndAreClean), ("conflictShadowedTrigger", testConflictShadowedTrigger), ("importerSkipsComplex", testImporterSkipsComplex), ("simulator", testSimulator), ("inputModifiers", testInputModifiers), ("variants", testVariantsOrderedAndResolved), ("layoutsDoNotOverlap", testLayoutsDoNotOverlap), ("jisKeys", testJISHasItsOwnKeys), ("extendedKeys", testExtendedKeysAndMediaRow), ("customConfigFile", testCustomConfigFileAndProjectRoundTrip), ("copyPaste", testCopyPasteKeySettings), ("tapKeepsOriginal", testTapKeepsOriginalFunction), ("topRow", testTopRowMatchesFunctionAndMediaKeys), ("removeLayers", testRemoveSeveralLayers), ("mouse", testMouseButtons), ("keyDownUp", testKeyDownAndKeyUp), ("openOnVariant", testKeyOpensOnTheVariantItsCapShows), ("pasteNothing", testPastingNothingResetsAKey), ("clusters", testClustersFnRightCtrlArrowsAndPad), ("deviceCondition", testDeviceCondition), ("duplicateBinding", testDuplicateBindingWarning), ("chords", testChordsPrecedeSingleKeys), ("layerReorder", testLayerReorder), ("legendsFit", testLegendsFitAtMinimumUnit), ("capTextFits", testCapTextFitsAndNeverEllipsizes)]
 for (name, fn) in cases {
   let before = failures
   do { try fn() } catch { failures += 1; print("  ERROR \(error)") }

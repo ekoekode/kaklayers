@@ -47,8 +47,13 @@ final class AppState: ObservableObject {
         restoring = true; undoStack.append(project); project = next; restoring = false
         objectWillChange.send()
     }
-    @Published var activeLayer: String? = nil { didSet { editingChord = nil; if layerPopover != activeLayer { layerPopover = nil } } }       // nil = base
-    @Published var selectedKey: String? = nil { didSet { editingChord = nil } }
+    @Published var activeLayer: String? = nil { didSet { editingChord = nil; syncVariant(); if layerPopover != activeLayer { layerPopover = nil } } }       // nil = base
+    @Published var selectedKey: String? = nil { didSet { editingChord = nil; if selectedKey != oldValue { syncVariant() } } }
+    /// Open the selected key on the variant its cap shows, so the workflow and the Clear button match what you see.
+    func syncVariant() {
+        let v = selectedKey.map { project.defaultVariantMods(layer: activeLayer, key: $0) } ?? []
+        if v != variantMods { variantMods = v }
+    }
     /// When set, the inspector edits this chord (keys pressed together) instead of the single selected key.
     @Published var editingChord: [String]? = nil
     func keysFor(_ key: String) -> [String] { editingChord ?? [key] }
@@ -177,9 +182,9 @@ final class AppState: ObservableObject {
 
     func copyKeySettings(_ key: String) {
         let s = project.keySettings(layer: activeLayer, key: key)
-        guard !s.isEmpty else { status = "Nothing to copy: \(Keycodes.label(key)) has no settings in \(activeLayerName)."; return }
         keyClipboard = (key, activeLayer, s)
-        status = "Copied \(Keycodes.label(key))'s settings. Select another key and press ⌘V to paste."
+        status = s.isEmpty ? "Copied \(Keycodes.label(key)) with no settings: pasting it resets the target key."
+                           : "Copied \(Keycodes.label(key))'s settings. Select another key and press ⌘V to paste."
     }
     func pasteKeySettings(to key: String) {
         guard let c = keyClipboard else { status = "Nothing copied yet. Select a key with settings and press ⌘C."; return }
@@ -188,14 +193,14 @@ final class AppState: ObservableObject {
     /// Dragging key A onto key B copies A's settings (in the active layer) onto B.
     func copySettings(from a: String, to b: String) {
         let s = project.keySettings(layer: activeLayer, key: a)
-        guard !s.isEmpty else { status = "Nothing to copy: \(Keycodes.label(a)) has no settings in \(activeLayerName)."; return }
-        applyCopy(s, from: a, fromLayer: activeLayer, to: b)
+        applyCopy(s, from: a, fromLayer: activeLayer, to: b)      // an empty key copies nothing, which resets the target
     }
     private func applyCopy(_ settings: [KeyBinding], from a: String, fromLayer: String?, to b: String) {
         if a == b && fromLayer == activeLayer { status = "That's the same key."; return }
         project.paste(settings, layer: activeLayer, key: b)       // one change, so one undo step
-        selectedKey = b; variantMods = []
-        status = "Copied \(Keycodes.label(a))'s settings to \(Keycodes.label(b)) in \(activeLayerName)."
+        selectedKey = b; syncVariant()
+        status = settings.isEmpty ? "Reset \(Keycodes.label(b)) in \(activeLayerName): \(Keycodes.label(a)) has no settings."
+                                  : "Copied \(Keycodes.label(a))'s settings to \(Keycodes.label(b)) in \(activeLayerName)."
     }
 
     private var typeMonitor: Any?
@@ -326,6 +331,15 @@ final class AppState: ObservableObject {
         var b = project.bindings[i]
         f(&b)
         if b != project.bindings[i] { project.bindings[i] = b }   // no publish when nothing changed
+    }
+    /// Removes everything set on one key in the active layer: the plain binding and every modifier variant. One undo step.
+    func resetKey(_ key: String) {
+        guard !project.keySettings(layer: activeLayer, key: key).isEmpty else { status = "\(Keycodes.label(key)) has nothing to reset in \(activeLayerName)."; return }
+        var p = project
+        p.bindings.removeAll { $0.layerId == activeLayer && $0.fromKeys == [key] }
+        project = p
+        if selectedKey == key { variantMods = [] }
+        status = "Reset \(Keycodes.label(key)) in \(activeLayerName). ⌘Z undoes it."
     }
     func clearBinding(_ key: String) {
         project.bindings.removeAll { $0.layerId == activeLayer && $0.fromKeys == keysFor(key) && Set($0.fromModifiers) == Set(variantMods) }

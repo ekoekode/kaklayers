@@ -161,6 +161,14 @@ public struct Project: Codable, Hashable {
     public func chords(layer: String?, containing key: String) -> [KeyBinding] {
         bindings.filter { $0.layerId == layer && $0.fromKeys.count > 1 && $0.fromKeys.contains(key) && !$0.isEmpty }
     }
+    /// The variant a key should open on: the plain binding if there is one, otherwise the first modifier variant that has actions.
+    /// This is the binding the key cap shows, so the cap, the workflow and the Clear button always agree.
+    public func defaultVariantMods(layer: String?, key: String) -> [String] {
+        let vs = bindings.filter { $0.layerId == layer && $0.fromKeys == [key] && !$0.isEmpty }
+        if vs.isEmpty || vs.contains(where: { $0.fromModifiers.isEmpty }) { return [] }
+        return vs[0].fromModifiers
+    }
+
     public func variants(layer: String?, key: String) -> [KeyBinding] {
         bindings.filter { $0.layerId == layer && $0.fromKeys == [key] }
     }

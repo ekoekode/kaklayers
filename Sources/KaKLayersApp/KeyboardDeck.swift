@@ -93,7 +93,8 @@ extension AppState {
             for (i, l) in triggers[k.code] ?? [] { badges.append(.shape(Theme.shape(forLayerIndex: i), l.colorHex)) }
             if chordKeys.contains(k.code) { badges.append(.text("⛓")) }
             if let n = content?.moreRoles, n > 0 { badges.append(.text("+\(n)")) }
-            if (variantCount[k.code] ?? 0) > 1 { badges.append(.text("⌘")) }
+            if let b, !b.fromModifiers.isEmpty { badges.append(.text(b.fromModifiers.map(modSymbol).joined())) }     // the cap shows a modifier variant
+            else if (variantCount[k.code] ?? 0) > 1 { badges.append(.text("⌘")) }
             if showAllLayers {
                 for (i, l) in project.layers.enumerated() where l.id != layer && (usedByLayer[l.id]?.contains(k.code) ?? false) {
                     badges.append(.shape(Theme.shape(forLayerIndex: i), l.colorHex))
@@ -290,6 +291,12 @@ struct KeyCapView: View, Equatable {
             if inside { app.hover.enter(key.code) } else { app.hover.leave(key.code) }
         }
         .onTapGesture { app.tapKey(key.code) }
+        .contextMenu {
+            Button("Copy settings") { app.copyKeySettings(key.code) }
+            Button("Paste settings") { app.pasteKeySettings(to: key.code) }
+            Divider()
+            Button("Reset key", role: .destructive) { app.resetKey(key.code) }.disabled(!m.used)
+        }
         .overlay(DropHighlight(code: key.code, tint: m.isBase ? Color.accentColor : tint, kind: key.shape, unit: unit, model: app.drop))
         .modifier(KeyDragDrop(app: app, code: key.code))
         .accessibilityElement(children: .ignore)
